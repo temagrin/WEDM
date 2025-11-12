@@ -3,6 +3,10 @@
 #include "motor.h"
 #include "load_cell.h"
 #include "current_sensor.h"
+#include "pulse_generator.h"
+#include "hw_config.h"
+
+PulseGenerator pulse(PULSE_PIN);
 
 void main_core0() {
     // подумать когда тарировать, с проволкой натянутой вручную, чтобы 0 было идеальное натяжение, или какое то значение.
@@ -54,6 +58,11 @@ void setup() {
     init_motors();
     load_cell_setup();
     adc_dma_setup();
+
+    pulse.setPulseWidth(5);    // 5 мкс
+    pulse.setPausePeriod(100); // 100 мкс   можно вместо периода паузы указать сразу частоту pulse.setFrequency(10000) - 10кГц)
+    pulse.enable(true);
+    
     multicore_launch_core1(&main_core1);  
 }
 
