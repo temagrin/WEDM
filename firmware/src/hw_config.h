@@ -1,3 +1,5 @@
+#define ENABLE_PIN_LEVEL 0
+
 #define DIR_1_PIN 0
 #define STEP_1_PIN 1
 #define EN_1_PIN 2
@@ -31,3 +33,5 @@
 
 #define EMPTY_0_PIN 6
 #define EMPTY_1_PIN 7
+
+#define LOAD_CELL_FACTOR 1848.0
