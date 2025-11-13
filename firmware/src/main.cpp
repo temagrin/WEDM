@@ -4,39 +4,40 @@
 #include "load_cell.h"
 #include "current_sensor.h"
 #include "pulse_generator.h"
+#include "xy_stepper_planner.h"
 #include "hw_config.h"
+
+LoadCell loadCell(HX711DT_PIN, HX711SCK_PIN);
+
+CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 
 PulseGenerator pulse(PULSE_PIN);
 
-void main_core0() {
-    // подумать когда тарировать, с проволкой натянутой вручную, чтобы 0 было идеальное натяжение, или какое то значение.
-    load_cell_tare();
+StepperMotor motorA(STEP_1_PIN, DIR_1_PIN, EN_1_PIN);
+StepperMotor motorB(STEP_2_PIN, DIR_2_PIN, EN_2_PIN);
+StepperMotor motorX(STEP_3_PIN, DIR_3_PIN, EN_3_PIN);
+StepperMotor motorY(STEP_4_PIN, DIR_4_PIN, EN_4_PIN);
 
-    // типо крутятся движки перемотки проволки
-    set_constant_speed(0, 200); 
-    set_constant_speed(1, 150);
-    
+StepperMotorController motorController;
+XYStepperPlanner planner(motorX, motorY);
+
+
+void main_core0() {
     static bool revers = false;
     while (true) {
-
-        // эмитируем движение по координатам
-        if (remaining_steps(2) == -1 && remaining_steps(3) == -1){
-          if (revers){
-            start_move_steps(3, 128*200, 800000);
-            start_move_steps(2, -128*400, 2000000);
-          } else {
-            start_move_steps(3, -128*200, 1000000);
-            start_move_steps(2, 128*400, 800000);
-          }
-          revers=!revers;
-        }
+        loadCell.update();
+        int wire_tesn = loadCell.getWeight();
+        uint16_t current = currentSensor.getCurrent();
 
         // выводим значения с датчиков для отладки
         Serial.printf("%d %d\n", wire_tesn, current); 
-
-        //запрашивать часто не имеет смысла - HX711 на 80 герц режиме без разгона это 125мСек новое знаечние
-        update_load_cell_value();
-
+        // тригаем планировщик
+        if (current > 2000 ){
+            planner.moveTo(50000, 30000, 1000000);
+        }
+        if (current < 1000 ){
+            planner.moveTo(0, 0, 1000000);
+        }
         // тут не страшно - это всего лишь командная часть.
         sleep_us(25000);
     }
@@ -44,7 +45,8 @@ void main_core0() {
 
 void main_core1(){
   while (true) {
-      handle_motors();
+      motorController.handleMotors();
+      planner.update();
   }
 }
 
@@ -55,13 +57,24 @@ void setup() {
       sleep_us(10);
     }
     sleep_us(100);
-    init_motors();
-    load_cell_setup();
-    adc_dma_setup();
+
+    loadCell.setup();
+    loadCell.tare();
+
+    currentSensor.setup();
 
     pulse.setPulseWidth(5);    // 5 мкс
     pulse.setPausePeriod(100); // 100 мкс   можно вместо периода паузы указать сразу частоту pulse.setFrequency(10000) - 10кГц)
     pulse.enable(true);
+
+    motorController.addMotor(motorA);
+    motorController.addMotor(motorB);
+    motorController.addMotor(motorX);
+    motorController.addMotor(motorY);
+    motorController.init();
+    
+    motorA.setConstantSpeed(200);
+    motorB.setConstantSpeed(-250);
     
     multicore_launch_core1(&main_core1);  
 }

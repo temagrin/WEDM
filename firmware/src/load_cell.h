@@ -1,12 +1,26 @@
 #ifndef LOAD_CELL_H
 #define LOAD_CELL_H
 
-extern volatile int wire_tesn;
+#include <cstdint>
+#define LOAD_CELL_FACTOR 1848.0
 
-void load_cell_setup();
+class LoadCell {
+public:
+    LoadCell(uint8_t dt_pin, uint8_t sck_pin);
 
-void load_cell_tare();
+    void setup();
+    void tare();
+    void update();
 
-void update_load_cell_value();
+    int getWeight() const;
+
+private:
+    uint8_t dtPin;
+    uint8_t sckPin;
+    bool tareDone = false;
+    int weight = -1;
+
+    // Объект HX711_ADC будет в cpp
+};
 
 #endif
