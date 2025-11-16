@@ -2,6 +2,9 @@
 #define CURRENT_SENSOR_H
 
 #include "pico/stdlib.h"
+#include "hardware/adc.h"
+#include "hardware/dma.h"
+#include "hardware/irq.h"
 
 class CurrentSensor {
 public:

@@ -1,6 +1,4 @@
 #include "pulse_generator.h"
-#include "hardware/pwm.h"
-#include "hardware/clocks.h"
 
 
 PulseGenerator::PulseGenerator(uint8_t pin) : _pin(pin) {

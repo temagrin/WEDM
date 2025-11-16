@@ -3,7 +3,6 @@
 #include "motor_controller.h"
 
 
-
 StepperMotorController::StepperMotorController(StepperMotor* _motorX, StepperMotor* _motorY, std::initializer_list<StepperMotor*> motorList)
     : motorX(_motorX), motorY(_motorY), motor_count(0)
 {

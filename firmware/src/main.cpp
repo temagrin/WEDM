@@ -1,6 +1,5 @@
-#include "pico/multicore.h"
 #include <SerialUSB.h>
-
+#include "pico/multicore.h"
 #include "hw_config.h"
 #include "motor.h"
 #include "motor_controller.h"

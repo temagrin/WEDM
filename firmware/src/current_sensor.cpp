@@ -1,7 +1,4 @@
 #include "current_sensor.h"
-#include "hardware/adc.h"
-#include "hardware/dma.h"
-#include "hardware/irq.h"
 
 static CurrentSensor* irq_instance = nullptr;
 

@@ -2,6 +2,8 @@
 #define LOAD_CELL_H
 
 #include <cstdint>
+#include "HX711_ADC.h"
+
 #define LOAD_CELL_FACTOR 1848.0
 
 class LoadCell {

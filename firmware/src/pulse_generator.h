@@ -2,6 +2,8 @@
 #define PULSE_GENERATOR_H
 
 #include <Arduino.h>
+#include "hardware/pwm.h"
+#include "hardware/clocks.h"
 
 class PulseGenerator {
 public:
