@@ -6,18 +6,14 @@ StepperMotor::StepperMotor(
     uint8_t step_pin,
     uint8_t dir_pin,
     uint8_t en_pin,
-    const MotorDriver& driver_settings,
-    uint32_t max_steps_per_sec,
-    uint32_t max_acceleration_steps_per_sec2
+    const MotorDriver& driver_settings
 )
     : config{
         step_pin, dir_pin, en_pin,
         driver_settings.invert_step_pin,
         driver_settings.invert_dir_pin,
         driver_settings.invert_en_pin,
-        driver_settings.step_pulse_duration,
-        max_steps_per_sec,
-        max_acceleration_steps_per_sec2
+        driver_settings.step_pulse_duration
     }
 {}
 

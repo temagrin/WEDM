@@ -15,17 +15,13 @@ public:
         bool invert_dir_pin;
         bool invert_en_pin;
         uint8_t step_pulse_duration;
-        uint32_t max_steps_per_sec;
-        uint32_t max_acceleration_steps_per_sec2;
     };
 
     explicit StepperMotor(
         uint8_t step_pin,
         uint8_t dir_pin,
         uint8_t en_pin,
-        const MotorDriver& driver_settings,
-        uint32_t max_steps_per_sec = 1000,
-        uint32_t max_acceleration_steps_per_sec2 = 1000
+        const MotorDriver& driver_settings
         );
 
     void init();
