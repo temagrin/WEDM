@@ -3,10 +3,9 @@
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 
-static CurrentSensor* irq_instance = nullptr;  // Для ISR привязки
+static CurrentSensor* irq_instance = nullptr;
 
 CurrentSensor::CurrentSensor(uint adc_pin) : adc_pin_num(adc_pin) {
-    // Занесем экземпляр для IRQ
     irq_instance = this;
 }
 

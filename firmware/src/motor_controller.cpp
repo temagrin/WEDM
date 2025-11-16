@@ -1,5 +1,8 @@
 // motor_controller.cpp
+#include <fastmath.h>
 #include "motor_controller.h"
+
+
 
 StepperMotorController::StepperMotorController(StepperMotor* _motorX, StepperMotor* _motorY, std::initializer_list<StepperMotor*> motorList)
     : motorX(_motorX), motorY(_motorY), motor_count(0)
@@ -20,7 +23,6 @@ void StepperMotorController::initMotors(){
     }
 }
 
-// завершить шаг для моторов у которых прошло нужное время и был установлен новый уровень
 void StepperMotorController::finalizeStep(StepperMotor* motor, absolute_time_t now) {
     absolute_time_t step_onset_time = motor->getStepOnsetTime();
     uint8_t step_pulse_duration = motor->getStepPulseDuration();
@@ -32,7 +34,7 @@ void StepperMotorController::finalizeStep(StepperMotor* motor, absolute_time_t n
     }
 }
 
-void StepperMotorController::finalizeMotors(absolute_time_t now) {
+void StepperMotorController::finalizeMotorsSteps(absolute_time_t now) {    
     finalizeStep(motorX, now);
     finalizeStep(motorY, now);
     for (uint8_t i=0; i<motor_count; i++) {
@@ -41,11 +43,35 @@ void StepperMotorController::finalizeMotors(absolute_time_t now) {
 }
 
 
-void StepperMotorController::handleMotors(){
-    absolute_time_t now = get_absolute_time();
+void StepperMotorController::setMotorSpeed(int index, uint32_t speed) {
+    if (index < 0 || index >= motor_count) return;
+    speedMotorStates[index].speed = speed;
+}
+
+
+void StepperMotorController::stepsMotorSpeeds(absolute_time_t now) {
+    for (int i = 0; i < motor_count; i++) {
+        int32_t speed = speedMotorStates[i].speed;
+        if (speed != 0) {
+            int64_t step_interval_us = static_cast<int>(1e6 / abs(speed));
+            int64_t dt = absolute_time_diff_us(speedMotorStates[i].lastStepTime, now);
+            if (dt >= step_interval_us) {
+                motors[i]->doStep(speed > 0, now);
+                speedMotorStates[i].lastStepTime = now;
+            }
+        }
+    }
+}
+
+void StepperMotorController::stepsMotorPosition(absolute_time_t now) {
     int64_t dt  = absolute_time_diff_us(last_handle_time, now);
     last_handle_time = now;
-    finalizeMotors(now);
-    
+}
 
+
+void StepperMotorController::handleMotors(){
+    absolute_time_t now = get_absolute_time();
+    stepsMotorPosition(now);
+    stepsMotorSpeeds(now);
+    finalizeMotorsSteps(now);
 }

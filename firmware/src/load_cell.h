@@ -20,7 +20,6 @@ private:
     bool tareDone = false;
     int weight = -1;
 
-    // Объект HX711_ADC будет в cpp
 };
 
 #endif

@@ -11,6 +11,6 @@ struct MotorDriver {
 };
 
 inline const MotorDriver A4988 =  {false,   false,  false,  1};
-inline const MotorDriver LV8729 = {true,    true,   true,   1};
+inline const MotorDriver LV8729 = {false,   false,   true,  2};
 
 #endif
