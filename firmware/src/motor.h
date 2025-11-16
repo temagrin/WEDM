@@ -2,63 +2,42 @@
 #ifndef MOTOR_H
 #define MOTOR_H
 
-#define ENABLE_PIN_LEVEL 0 // 0 для LV8729, 1 для A4988
-
-#include <cstdint>
 #include "pico/stdlib.h"
+#include "motor_drivers.h"
 
 class StepperMotor {
 public:
-    struct StepperPins {
-        uint gpio_step;
-        uint gpio_dir;
-        uint gpio_en;
+    struct StepperConfig {
+        uint8_t step_pin;
+        uint8_t dir_pin;
+        uint8_t en_pin;
+        bool invert_step_pin;
+        bool invert_dir_pin;
+        bool invert_en_pin;
+        uint8_t step_pulse_duration;
+        uint32_t max_steps_per_sec;
+        uint32_t max_acceleration_steps_per_sec2;
     };
 
-    explicit StepperMotor(uint step_pin, uint dir_pin, uint en_pin);
+    explicit StepperMotor(
+        uint8_t step_pin,
+        uint8_t dir_pin,
+        uint8_t en_pin,
+        const MotorDriver& driver_settings,
+        uint32_t max_steps_per_sec = 1000,
+        uint32_t max_acceleration_steps_per_sec2 = 1000
+        );
 
     void init();
-
-    // Интерфейс управления мотором
-    void handle();
-    void setConstantSpeed(int32_t speed);
-    void startMoveSteps(int32_t steps, uint32_t total_time_us);
-    int32_t adjustMoveTime(uint32_t new_time_us);
-    int32_t stopMove();
-    int32_t remainingSteps() const;
-
+    void doStep(bool dir, absolute_time_t now = get_absolute_time());
+    void afterStep();
+    void setPower(bool value);
+    absolute_time_t getStepOnsetTime() const;
+    uint8_t getStepPulseDuration() const;
+    
 private:
-    StepperPins pins;
-
-    struct MotorCommand {
-        enum class Type { CONSTANT_SPEED, MOVE_N_STEPS, NONE } type = Type::NONE;
-        int32_t remaining_steps = 0;
-        uint32_t interval_us = 0;
-        absolute_time_t last_step_time;
-    };
-
-    MotorCommand cmd;
-    bool dir = false;
-    bool enabled = false;
-    int32_t steps_done = 0;
-
-    void doStep();
-};
-
-class StepperMotorController {
-public:
-    static constexpr int MAX_MOTORS = 8;
-
-    StepperMotorController();
-
-    bool addMotor(StepperMotor& motor);  // Добавляет мотор, возвращает false, если превышен лимит
-
-    void init();
-    void handleMotors();
-
-private:
-    StepperMotor* motors[MAX_MOTORS] = {nullptr};
-    int motor_count = 0;
+    StepperConfig config;
+    absolute_time_t step_onset_time;
 };
 
 #endif
