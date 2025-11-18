@@ -1,3 +1,4 @@
+// current_sensor.h
 #ifndef CURRENT_SENSOR_H
 #define CURRENT_SENSOR_H
 
@@ -28,4 +29,4 @@ private:
     uint adc_pin_num;
 };
 
-#endif
+#endif // CURRENT_SENSOR_H

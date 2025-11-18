@@ -1,5 +1,5 @@
+// pulse_generator.cpp
 #include "pulse_generator.h"
-
 
 PulseGenerator::PulseGenerator(uint8_t pin) : _pin(pin) {
     pinMode(_pin, OUTPUT);
@@ -39,29 +39,12 @@ void PulseGenerator::setFrequency(float freq_hz) {
 
 void PulseGenerator::enable(bool on) {
     _enabled = on;
-    if (_enabled) {
-        pwm_set_enabled(slice_num, true);
-    } else {
-        pwm_set_enabled(slice_num, false);
+    pwm_set_enabled(slice_num, _enabled);
+    if (!_enabled) {
         digitalWrite(_pin, LOW);
     }
 }
 
-uint32_t PulseGenerator::getPulseWidth() const {
-    return _pulseWidth_us;
-}
-
-uint32_t PulseGenerator::getPausePeriod() const {
-    return _pausePeriod_us;
-}
-
-float PulseGenerator::getFrequency() const {
-    return _frequency;
-}
-
-bool PulseGenerator::isEnabled() const {
-    return _enabled;
-}
 
 void PulseGenerator::updatePWM() {
     uint32_t sys_clk = clock_get_hz(clk_sys);

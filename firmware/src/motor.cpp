@@ -29,27 +29,51 @@ void StepperMotor::init() {
     gpio_put(config.step_pin, config.invert_step_pin);
     gpio_put(config.dir_pin, config.invert_dir_pin);
     gpio_put(config.en_pin, config.invert_en_pin);
+
+    motorState.calcSteps = false;
+    motorState.direction = false;
+    motorState.stepInterval = 0;
+    motorState.stepLastTime = get_absolute_time();
+    motorState.stepOnsetTime = 0;
+    motorState.stepsDone = 0;
+    motorState.stepsRemaining = 0;
+
 }
 
-void StepperMotor::doStep(bool dir, absolute_time_t now) {
-    step_onset_time = now;
-    gpio_put(config.dir_pin, dir ^ config.invert_dir_pin);
+void StepperMotor::setPower(bool power) { 
+    gpio_put(config.en_pin, power ^ config.invert_en_pin); 
+}
+    
+
+void StepperMotor::doStep(absolute_time_t now) {
+    motorState.stepOnsetTime = now;
+    motorState.stepLastTime = now;
+    gpio_put(config.dir_pin, motorState.direction ^ config.invert_dir_pin);
     gpio_put(config.step_pin, !config.invert_step_pin);
 }
 
 void StepperMotor::afterStep() {
-    step_onset_time = 0;
+    motorState.stepOnsetTime = 0;
     gpio_put(config.step_pin, config.invert_step_pin);
 }
 
-void StepperMotor::setPower(bool en) {
-    gpio_put(config.en_pin, en ^ config.invert_en_pin);
+void StepperMotor::considStep(){
+    motorState.stepsRemaining--;
+    motorState.stepsDone++;
+    motorState.direction ? motorState.absoluteSteps++ : motorState.absoluteSteps--;
 }
 
-absolute_time_t StepperMotor::getStepOnsetTime() const {
-    return step_onset_time;
-}
-
-uint8_t StepperMotor::getStepPulseDuration() const {
-    return config.step_pulse_duration;
+void StepperMotor::setInfininityRorationSpeed(int32_t speed){
+    Serial.println("Constant speed rotation");
+    motorState.calcSteps = false;
+    if (speed == 0){
+        motorState.stepInterval = 0;
+        motorState.running = false;
+    } else {
+        motorState.direction = speed>0;
+        motorState.stepInterval = (uint32_t)(1e6f / abs(speed));
+        motorState.running = true;
+    }
+    Serial.println(motorState.stepInterval);
+    Serial.println();  
 }

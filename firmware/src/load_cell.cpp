@@ -1,5 +1,5 @@
+// load_cell.cpp
 #include "load_cell.h"
-
 
 HX711_ADC* hx711_ptr = nullptr;
 

@@ -1,3 +1,4 @@
+// pulse_generator.h
 #ifndef PULSE_GENERATOR_H
 #define PULSE_GENERATOR_H
 
@@ -14,10 +15,10 @@ public:
     void setFrequency(float freq_hz);         // Установить частоту Гц (перезапишет паузу)
     void enable(bool on);                      // Включить/выключить PWM
 
-    uint32_t getPulseWidth() const;
-    uint32_t getPausePeriod() const;
-    float getFrequency() const;
-    bool isEnabled() const;
+    inline uint32_t getPulseWidth() const { return _pulseWidth_us; }
+    inline uint32_t getPausePeriod() const { return _pausePeriod_us; }
+    inline float getFrequency() const { return _frequency; }
+    inline bool isEnabled() const { return _enabled; }
 
 private:
     uint8_t _pin;
