@@ -20,20 +20,20 @@ bool StepperMotorPlanner::moveTo(int64_t newX, int64_t newY, uint32_t tool_speed
     ratioX = (double)adx/dist;
     ratioY = (double)ady/dist;
     
-    targetXStepInterval = 0.0;
-    targetYStepInterval = 0.0;
-    xIntervalError = 0.0;
-    yIntervalError = 0.0;
-    
+    targetXStepInterval = minAllowedStepInterval;
+    targetYStepInterval = minAllowedStepInterval;
+
+    // если движение по одной оси, ничего страшного что будет какой то минимальный интервал. 
+    // у класса мотор-контроллера есть проверка на наличие шагов оставшихся шагов, когда там ничего - он не будет шагать
     if (ratioX!=0) targetXStepInterval = (double)1e6/(tool_speed*ratioX);
     if (ratioY!=0) targetYStepInterval = (double)1e6/(tool_speed*ratioY);
-
-    xStepInterval = (uint32_t) targetXStepInterval;
-    yStepInterval = (uint32_t) targetYStepInterval;
 
     targetXStepInterval = constrain(targetXStepInterval, minAllowedStepInterval, maxAllowedStepInterval);
     targetYStepInterval = constrain(targetYStepInterval, minAllowedStepInterval, maxAllowedStepInterval);
     
+    xStepInterval = (uint32_t) targetXStepInterval;
+    yStepInterval = (uint32_t) targetYStepInterval;
+
     Serial.print("dx=");Serial.print(dx);Serial.print("\n");
     Serial.print("dy=");Serial.print(dy);Serial.print("\n");
     Serial.print("tool_speed=");Serial.print(tool_speed);Serial.print("\n");
@@ -48,6 +48,9 @@ bool StepperMotorPlanner::moveTo(int64_t newX, int64_t newY, uint32_t tool_speed
 
 
     // предрасчет параметров для Fractional Step Timing Correction
+    xIntervalError = 0.0;
+    yIntervalError = 0.0;
+    
     uint32_t baseInterval = xStepInterval>yStepInterval? xStepInterval: yStepInterval;
     double maxTargetInterval = std::max(targetXStepInterval, targetYStepInterval);
     alignmentIntervalFactor = floor(2.0 * maxAccumulatedError / maxTargetInterval);
