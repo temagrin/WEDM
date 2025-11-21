@@ -70,6 +70,14 @@ jobs:
           name: source-code
           path: ./release
 
+      - name: Archive firmware
+        run: zip ./release/firmware.zip ./release/APPLICATION.uf2
+
+      - name: Upload Release Asset (use the zip file now)
+        uses: softprops/action-gh-release@v2.2.0
+        with:
+          files: ./release/firmware.zip 
+    
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
