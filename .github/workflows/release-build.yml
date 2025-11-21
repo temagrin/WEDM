@@ -27,7 +27,7 @@ jobs:
        
       - name: Convert ELF to UF2
         run: |
-          cd elf2uf2
+          cd firmware/elf2uf2
           make build
           ./elf2uf2 ../.pio/build/pico/APPLICATION.elf ../.pio/build/pico/APPLICATION.uf2
   
