@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Install Python and PlatformIO
         run: |
@@ -21,7 +21,7 @@ jobs:
         run: pio run
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: firmware-uf2
           path: .pio/build/**/*.uf2
@@ -40,13 +40,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download UF2 artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: firmware-uf2
           path: ./release
 
       - name: Download source code artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: source-code
           path: ./release
@@ -60,14 +60,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload UF2 to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.2.0
         with:
           files: ./release/**/*.uf2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload source code to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2.2.0
         with:
           files: ./release/source_code.zip
         env:
