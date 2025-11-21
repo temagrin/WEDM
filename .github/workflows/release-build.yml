@@ -33,42 +33,27 @@ jobs:
           make build
           ./elf2uf2 ../.pio/build/pico/APPLICATION.elf ../.pio/build/pico/APPLICATION.uf2
 
-      - name: Check UF2 file size
-        run: ls -lh firmware/.pio/build/pico/APPLICATION.uf2
-
-  
+     
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware-uf2
           path: firmware/.pio/build/**/*.uf2
           
-      - name: Archive source code
-        run: |
-          cd firmware
-          zip -r ../source_code.zip .
-      
-      - name: Upload source code as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: source-code
-          path: source_code.zip
-
+     
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository for gh CLI context
+        uses: actions/checkout@v4 
+
       - name: Download UF2 artifact
         uses: actions/download-artifact@v4
         with:
           name: firmware-uf2
           path: ./release
 
-      - name: Download source code artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: source-code
-          path: ./release
 
       - name: Extract Tag Name
         id: extract_tag
@@ -85,7 +70,6 @@ jobs:
             --prerelease \
             --notes "Automated build [ci skip]"
 
-          # Затем загружаем ассет в созданный релиз
           gh release upload "$TAG_NAME" "$FILE_PATH" --clobber
 
         env:
