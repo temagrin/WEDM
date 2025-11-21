@@ -1,7 +1,3 @@
-// MIT License
-//
-// Original by (c) 2023 Daniel Robertson https://github.com/endail/hx711-pico-c/
-
 #ifndef HX711_UTIL_H
 #define HX711_UTIL_H
 

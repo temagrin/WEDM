@@ -48,9 +48,7 @@ static inline pio_sm_config hx711_reader_program_get_default_config(uint offset)
     return c;
 }
 
-// MIT License
-//
-// Original by (c) 2023 Daniel Robertson https://github.com/endail/hx711-pico-c/
+
 #include <assert.h>
 #include <stddef.h>
 #include "hardware/clocks.h"
