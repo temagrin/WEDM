@@ -5,7 +5,9 @@ on:
     tags:
       - 'Release-*'
       - 'PreRelease-*'
-
+permissions:
+  contents: write
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,6 +32,10 @@ jobs:
           cd firmware/elf2uf2
           make build
           ./elf2uf2 ../.pio/build/pico/APPLICATION.elf ../.pio/build/pico/APPLICATION.uf2
+
+      - name: Check UF2 file size
+        run: ls -lh firmware/.pio/build/pico/APPLICATION.uf2
+
   
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
