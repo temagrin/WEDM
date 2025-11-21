@@ -6,14 +6,6 @@ on:
       - 'Release-*'
       - 'PreRelease-*'
 
-name: Build and Release Firmware
-
-on:
-  push:
-    tags:
-      - 'Release-*'
-      - 'PreRelease-*'
-
 jobs:
   build:
     runs-on: ubuntu-latest
