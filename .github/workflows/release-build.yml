@@ -70,25 +70,24 @@ jobs:
           name: source-code
           path: ./release
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.ref_name }}
-          prerelease: ${{ startsWith(github.ref_name, 'PreRelease-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Tag Name
+        id: extract_tag
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      - name: Upload UF2 to release
-        uses: softprops/action-gh-release@v2.2.0
-        with:
-          files: ./release/pico/APPLICATION.uf2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create or Update Release and Upload Asset
+        run: |
+          TAG_NAME="${{ env.RELEASE_TAG }}"
+          FILE_PATH="./release/pico/APPLICATION.uf2"
 
-      - name: Upload source code to release
-        uses: softprops/action-gh-release@v2.2.0
-        with:
-          files: ./release/source_code.zip
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --draft \
+            --prerelease \
+            --notes "Automated build [ci skip]"
+
+          # Затем загружаем ассет в созданный релиз
+          gh release upload "$TAG_NAME" "$FILE_PATH" --clobber
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
