@@ -27,14 +27,9 @@ jobs:
        
       - name: Convert ELF to UF2
         run: |
-          git clone https://github.com/raspberrypi/elf2uf2.git
           cd elf2uf2
-          mkdir build && cd build
-          cmake ..
-          make
-          cp elf2uf2 ../../elf2uf2
-          cd ../..
-          ./elf2uf2 firmware/.pio/build/pico/APPLICATION.elf firmware/.pio/build/pico/APPLICATION.uf2
+          make build
+          ./elf2uf2 ../.pio/build/pico/APPLICATION.elf ../.pio/build/pico/APPLICATION.uf2
   
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
