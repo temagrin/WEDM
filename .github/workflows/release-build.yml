@@ -71,7 +71,7 @@ jobs:
           path: ./release
 
       - name: Archive firmware
-        run: run: zip ./release/firmware.zip ./release/*.uf2
+        run: zip ./release/firmware.zip ./release/*.uf2
 
       - name: Upload Release Asset (use the zip file now)
         uses: softprops/action-gh-release@v2.2.0
