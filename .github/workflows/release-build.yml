@@ -62,14 +62,17 @@ jobs:
       - name: Create or Update Release and Upload Asset
         run: |
           TAG_NAME="${{ env.RELEASE_TAG }}"
-          FILE_PATH="./release/pico/APPLICATION.uf2"
+          FILE_PATH="./release/pico/APPLICATION.uf2" 
 
+          FLAGS=""
+          if [[ "$TAG_NAME" == PreRelease-* ]]; then
+            FLAGS="--draft --prerelease"
+          fi
+          echo "Creating release $TAG_NAME with flags: $FLAGS"
           gh release create "$TAG_NAME" \
             --title "$TAG_NAME" \
-            --draft \
-            --prerelease \
+            $FLAGS \
             --notes "Automated build [ci skip]"
-
           gh release upload "$TAG_NAME" "$FILE_PATH" --clobber
 
         env:
