@@ -7,7 +7,7 @@ CurrentSensor::CurrentSensor(uint adc_pin) : adc_pin_num(adc_pin) {
     irq_instance = this;
 }
 
-void CurrentSensor::setup() {
+void CurrentSensor::start() {
     adc_init();
     adc_gpio_init(adc_pin_num);
     adc_select_input(0);  // Предполагается ADC0 => pin adc_pin_num

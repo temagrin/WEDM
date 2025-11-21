@@ -1,89 +1,72 @@
-#include <SerialUSB.h>
-#include "pico/multicore.h"
+#include <cstdio>
+#include <pico/stdlib.h>
+#include <pico/stdio_usb.h>
+#include <pico/multicore.h>
+#include <hardware/clocks.h>
+#include <hardware/pll.h>
+#include <hardware/vreg.h>
+
 #include "hw_config.h"
-#include "motor.h"
 #include "motor_controller.h"
-#include "motor_planner.h"
-#include "motor_drivers.h"
+#include "current_sensor.h"
 
-StepperMotor motorA(STEP_1_PIN, DIR_1_PIN, EN_1_PIN, LV8729);
-StepperMotor motorB(STEP_2_PIN, DIR_2_PIN, EN_2_PIN, LV8729);
-StepperMotor motorX(STEP_3_PIN, DIR_3_PIN, EN_3_PIN, LV8729);
-StepperMotor motorY(STEP_4_PIN, DIR_4_PIN, EN_4_PIN, LV8729);
 
-StepperMotorController motorController({&motorX, &motorY, &motorA, &motorB});
-StepperMotorPlanner motorPlanner(&motorX, &motorY);
-
-uint8_t task_id = 0;
-
-int32_t tasks[6][3] = {
-  {1000,2000,1000},
-  {500,4000,1000},
-  {1500,1500,10000},
-  {100000,200000,100000},
-  {500000,400000,100000},
-  {150000,150000,100000},
-};
-
-void new_task(){
-  if (task_id<6){
-  sleep_us(1000000);
-  Serial.println();
-  Serial.println();
-  Serial.println("----------");
-  Serial.printf("Start new test case %d\n", task_id);
-  Serial.println("----------");
-  motorPlanner.reset();
-  motorPlanner.moveTo(tasks[task_id][0],tasks[task_id][1],tasks[task_id][2]);
-  }
-  if (task_id<7){
-    task_id++;
-  }
-  if (task_id>6){
-    motorX.setPower(false);
-    motorY.setPower(false);
-  }
+void overclock() {
+  vreg_set_voltage(VREG_VOLTAGE_1_20);         // For >133 MHz
+  busy_wait_us(10 * 1000);  // 10 ms delay
+  set_sys_clock_khz(250000, true);             // Set to 250 MHz
 }
 
-void main_core() {
-    sleep_us(100000);
-
-    // motorA.setPower(true);
-    // motorB.setPower(true);
-    // motorA.setInfininityRorationSpeed((int32_t)128*200*2);
-    // motorB.setInfininityRorationSpeed((int32_t)-128*200*4);
-    
-    // тестовое задание
-    motorX.setCalcSteps(true);
-    motorY.setCalcSteps(true);
-    motorX.setPower(true);
-    motorY.setPower(true);
-    
-    while (true) {
-        if (motorPlanner.ready()) new_task();
-        motorPlanner.handlePlaner();
-    }
-}
-
+StepperMotorController motorController;
+CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 
 void stepper_core(){
-  while (true) 
-  {   
-    // это ядро ничем дополнительным не нагружаем - тут двигатели шагают - важна каждая микросекунда
-    motorController.handleMotors();
-  }
+    
+    absolute_time_t now,old;
+    while(true) { 
+        now = get_absolute_time();
+        if (old!=now){
+            motorController.tick(now);
+            old=now;
+        }
+    } 
 }
 
-
-void setup() {
-    Serial.begin(921600, false);
-    while (!Serial) sleep_us(10);
-    sleep_us(10000);
-    Serial.println("Start");
+int main() {
+    overclock();
+    stdio_init_all();
+    
+    while (!stdio_usb_connected()) {
+        tight_loop_contents(); 
+    }
+    
+    sleep_ms(2000);
+    printf("Hello world\n\n");
+    
+    currentSensor.start();
     motorController.initMotors();
+    motorController.setPowerXY(true);
+    motorController.setPowerA(true);
+    motorController.setPowerB(true);
+    
     multicore_launch_core1(&stepper_core);
-}
+    
 
-void loop(){
-  main_core();
+
+    uint16_t currentOld = 0;
+    int16_t current=0;
+    
+    while(true) {    
+        current = currentSensor.getCurrent()-25;
+        if (currentOld-10>current || currentOld+10<current){
+            currentOld = current;
+            motorController.setSpeedA(current*24+80000);
+            motorController.setSpeedB(current*24+80000);
+            motorController.setSpeedX(current*24+80000);
+            motorController.setSpeedY(current*24+80000); 
+        }
+        sleep_ms(25);
+
+        // tight_loop_contents();
+    } 
 }

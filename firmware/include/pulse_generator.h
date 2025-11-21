@@ -2,9 +2,9 @@
 #ifndef PULSE_GENERATOR_H
 #define PULSE_GENERATOR_H
 
-#include <Arduino.h>
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
+#include "pico/stdlib.h"
 
 class PulseGenerator {
 public:

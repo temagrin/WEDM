@@ -2,9 +2,9 @@
 #include "pulse_generator.h"
 
 PulseGenerator::PulseGenerator(uint8_t pin) : _pin(pin) {
-    pinMode(_pin, OUTPUT);
+    gpio_init(_pin);
+    // gpio_set_dir(_pin, GPIO_OUT);
     gpio_set_function(_pin, GPIO_FUNC_PWM);
-
     slice_num = pwm_gpio_to_slice_num(_pin);
     chan = pwm_gpio_to_channel(_pin);
     updatePWM();
@@ -41,7 +41,7 @@ void PulseGenerator::enable(bool on) {
     _enabled = on;
     pwm_set_enabled(slice_num, _enabled);
     if (!_enabled) {
-        digitalWrite(_pin, LOW);
+        gpio_put(_pin, 0);
     }
 }
 

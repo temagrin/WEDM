@@ -13,7 +13,7 @@ public:
 
     CurrentSensor(uint adc_pin);
 
-    void setup();
+    void start();
     void handleIRQ();  // Вызывать внутри IRQ обработчика DMA
 
     uint16_t getCurrent() const;

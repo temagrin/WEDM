@@ -1,0 +1,28 @@
+.program motor_step_sequence
+.side_set 0 optional
+
+.wrap_target
+start:
+    pull block          ; 1. Получаем слово из FIFO в OSR
+    out pins, 4         ; 2. Выводим биты 0-3
+    mov x, osr          ; 3.1 Подготавливаем второе состояние
+    in x, 4             ; 3.2 сдвигаем на 6 разрядов
+    mov osr, x          ; 3.3 переносим в выходной регистр
+    nop                 ; 1 тактов
+    out pins, 4         ; выводим из osr 4 младших битов
+.wrap
+
+% c-sdk {
+#include "hardware/pio.h"
+static inline void motor_step_sequence_init(PIO pio, uint sm, uint offset, uint base_pin) {
+    pio_sm_config c = motor_step_sequence_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, base_pin, 4);
+    for (int i = 0; i < 4; i++) {
+        pio_gpio_init(pio, base_pin + i); 
+    }
+    pio_sm_set_pindirs_with_mask(pio, sm, 0xF << base_pin, 0xF << base_pin);
+    sm_config_set_clkdiv(&c, 1.f);
+    pio_sm_init(pio, sm, offset, &c);   
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
