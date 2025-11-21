@@ -64,23 +64,12 @@ jobs:
           name: firmware-uf2
           path: ./release
 
-      - name: List files in the release directory (DEBUG STEP)
-        run: ls -R ./release
-
       - name: Download source code artifact
         uses: actions/download-artifact@v4
         with:
           name: source-code
           path: ./release
 
-      - name: Archive firmware
-        run: zip ./release/firmware.zip ./release/pico/APPLICATION.uf2
-
-      - name: Upload Release Asset (use the zip file now)
-        uses: softprops/action-gh-release@v2.2.0
-        with:
-          files: ./release/firmware.zip 
-    
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -92,7 +81,7 @@ jobs:
       - name: Upload UF2 to release
         uses: softprops/action-gh-release@v2.2.0
         with:
-          files: ./release/**/*.uf2
+          files: ./release/pico/APPLICATION.uf2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
