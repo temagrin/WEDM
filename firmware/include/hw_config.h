@@ -1,6 +1,6 @@
 #define MOTOR_ENABLE_INVERT 1   
 
-#define MOTOR_STEP_INVERT   0
+#define MOTOR_STEP_INVERT   1
 
 #define MOTOR_X_DIR_INVERT  0   // 0 = Направление X по умолчанию
 #define MOTOR_Y_DIR_INVERT  0   // 0 = Направление Y по умолчанию

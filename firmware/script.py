@@ -10,7 +10,7 @@ platform = env.PioPlatform()
 
 # --- 1. Конфигурация пути к pioasm (Кроссплатформенный поиск) ---
 try:
-    pioasm_dir = platform.get_package_dir("tool-wizio-pico") 
+    pioasm_dir = platform.get_package_dir("framework-picosdk")
     if not pioasm_dir:
         raise Exception("Package tool-wizio-pico not found!")
     
@@ -60,20 +60,20 @@ def build_pio_files(target, source, env):
 
 
 
-def auto_upload(target, source, env):  # pylint: disable=W0613,W0621
-    print("--- Running BeforeUpload Hook ---")
-    print("Running env.AutodetectUploadPort()...")
-    env.AutodetectUploadPort()
-    upload_port = env.subst("$UPLOAD_PORT")
-    print(f"[DEBUG] UPLOAD_PORT determined: {upload_port}")
-    if not upload_port:
-        print("Fatal error: PlatformIO could not autodetect upload port.")
-        env.Exit(1)
-
-    print(f"Sending 1200bps touch signal to {upload_port}")
-    env.TouchSerialPort("$UPLOAD_PORT", 1200)
-    time.sleep(5)
-env.AddPreAction("upload", auto_upload)
+# def auto_upload(target, source, env):  # pylint: disable=W0613,W0621
+#     print("--- Running BeforeUpload Hook ---")
+#     print("Running env.AutodetectUploadPort()...")
+#     env.AutodetectUploadPort()
+#     upload_port = env.subst("$UPLOAD_PORT")
+#     print(f"[DEBUG] UPLOAD_PORT determined: {upload_port}")
+#     if not upload_port:
+#         print("Fatal error: PlatformIO could not autodetect upload port.")
+#         env.Exit(1)
+#
+#     print(f"Sending 1200bps touch signal to {upload_port}")
+#     env.TouchSerialPort("$UPLOAD_PORT", 1200)
+#     time.sleep(5)
+# env.AddPreAction("upload", auto_upload)
 
 
 # --- 4. Привязка функций к событиям PlatformIO ---
