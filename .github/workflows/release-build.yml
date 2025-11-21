@@ -70,6 +70,9 @@ jobs:
           name: source-code
           path: ./release
 
+      - name: Check UF2 file size
+        run: ls -lh firmware/.pio/build/pico/APPLICATION.uf2
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
