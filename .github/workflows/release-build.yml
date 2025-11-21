@@ -6,28 +6,43 @@ on:
       - 'Release-*'
       - 'PreRelease-*'
 
+name: Build and Release Firmware
+
+on:
+  push:
+    tags:
+      - 'Release-*'
+      - 'PreRelease-*'
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
+      - name: Set working directory to firmware
+        run: cd firmware
+      
       - name: Install Python and PlatformIO
         run: |
           python3 -m pip install --upgrade pip
           pip install platformio
-
+          
       - name: Build firmware
-        run: pio run
-
+        run: |
+          cd firmware
+          pio run
+          
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware-uf2
-          path: .pio/build/**/*.uf2
-
+          path: firmware/.pio/build/**/*.uf2
+          
       - name: Archive source code
-        run: zip -r source_code.zip .
+        run: |
+          cd firmware
+          zip -r ../source_code.zip .
       
       - name: Upload source code as artifact
         uses: actions/upload-artifact@v4
@@ -35,6 +50,43 @@ jobs:
           name: source-code
           path: source_code.zip
 
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download UF2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware-uf2
+          path: ./release
+
+      - name: Download source code artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: source-code
+          path: ./release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          prerelease: ${{ startsWith(github.ref_name, 'PreRelease-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload UF2 to release
+        uses: softprops/action-gh-release@v2.2.0
+        with:
+          files: ./release/**/*.uf2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload source code to release
+        uses: softprops/action-gh-release@v2.2.0
+        with:
+          files: ./release/source_code.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   release:
     needs: build
     runs-on: ubuntu-latest
