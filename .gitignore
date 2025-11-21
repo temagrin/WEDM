@@ -45,3 +45,13 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+/.idea/.gitignore
+/.idea/editor.xml
+/.idea/misc.xml
+/.idea/vcs.xml
+/firmware/.idea/.gitignore
+/firmware/.idea/editor.xml
+/firmware/.idea/misc.xml
+/firmware/.idea/vcs.xml
+/firmware/.idea/workspace.xml
