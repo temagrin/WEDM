@@ -63,7 +63,7 @@ void StepperMotorController::setSpeed(MotorState* state, const int32_t speed){
     const double fracPart = stepInterval - static_cast<double>(intPart);
     state->stepInterval = intPart;
     state->errorIncrement = static_cast<uint32_t>(fracPart * DOUBLE_SCALE);
-    printf("speed=%d interval=%d.%d\n", speed, state->stepInterval, state->errorIncrement);
+    // printf("speed=%d interval=%d.%d\n", speed, state->stepInterval, state->errorIncrement);
 }
 
 
