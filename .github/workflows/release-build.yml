@@ -29,9 +29,9 @@ jobs:
        
       - name: Convert ELF to UF2
         run: |
-          cd firmware/elf2uf2
+          cd firmware/utils/elf2uf2
           make build
-          ./elf2uf2 ../.pio/build/pico/APPLICATION.elf ../.pio/build/pico/APPLICATION.uf2
+          ./elf2uf2 ../../.pio/build/pico/APPLICATION.elf ../../.pio/build/pico/APPLICATION.uf2
 
      
       - name: Archive artifacts
