@@ -14,7 +14,7 @@ class StepperFSM:
 
     def __init__(self, acceleration, pause_max_acceleration, min_speed):
         self.state = self.State.Idle
-
+        self.last_update_time = 0
         # Основные параметры движения
         self.acceleration = acceleration  # базовое ускорение и торможение
         self.pause_max_acceleration = pause_max_acceleration  # ускорение при паузе (обычно больше базового)
@@ -28,11 +28,6 @@ class StepperFSM:
 
         # Позиции и расстояния по осям
         self.position = 0
-        self.position_x = 0
-        self.position_y = 0
-        self.distance_x = 0
-        self.distance_y = 0
-
         self.current_speed = 0
         self.total_dist = 0
 
@@ -52,8 +47,11 @@ class StepperFSM:
         self.start_speed = start_speed
         self.end_speed = end_speed
         self.state_time = 0
+        self.pause_acceleration = 0
         self._calculate_profile(distance)
         self.state = self.State.Accel
+        self.last_update_time = 0
+
 
     def pause(self, value):
         if value == 0:
@@ -98,17 +96,24 @@ class StepperFSM:
             max_reachable_speed = sqrt(a * s + (v0**2 + vmin_end**2) / 2)
             max_reachable_speed = max(max_reachable_speed, self.min_speed)
             self.max_speed = min(max_reachable_speed, vmax)
-            self.accel_time = max(0.001, (self.max_speed - v0) / a if self.max_speed > v0 else 0)
+            self.accel_time = (self.max_speed - v0) / a if self.max_speed > v0 else 0
             self.cruise_time = 0
-            self.decel_time = max(0.001, (self.max_speed - vmin_end) / a)
+            self.decel_time = (self.max_speed - vmin_end) / a
         else:
             self.max_speed = vmax
-            self.accel_time = max(0.001, (self.max_speed - v0) / a)
-            self.decel_time = max(0.001, (self.max_speed - vmin_end) / a)
+            self.accel_time = (self.max_speed - v0) / a
+            self.decel_time = (self.max_speed - vmin_end) / a
             cruise_dist = s - accel_dist - decel_dist
-            self.cruise_time = max(0, cruise_dist / self.max_speed if self.max_speed != 0 else 0)
+            self.cruise_time = cruise_dist / self.max_speed if self.max_speed != 0 else 0
 
         self.state_time = 0
+
+    def tick(self, now:int):
+        if self.last_update_time==0:
+            self.last_update_time = now
+            return 0
+        self.update((now - self.last_update_time)*0.000001)
+        return self.current_speed
 
     def update(self, dt):
         if self.state in (self.State.Idle, self.State.Done):
