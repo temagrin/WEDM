@@ -42,7 +42,6 @@ class StepperFSM:
         self.cruise_time = 0
         self.decel_time = 0
 
-        # Состояния паузы
         self.pause_start_speed = 0
 
     def start_move(self, distance, max_speed, start_speed=0, end_speed=0):
@@ -62,7 +61,6 @@ class StepperFSM:
             return
 
         if self.state == self.State.Decel:
-            # При торможении ускорение паузы увеличивается от базового к максимальному
             self.pause_acceleration = (value / 255.0) * (
                         self.pause_max_acceleration - self.acceleration) + self.acceleration
         else:
@@ -79,15 +77,15 @@ class StepperFSM:
             speed_threshold = 1e-3
             start_speed_for_resume = self.current_speed if self.current_speed > speed_threshold else self.min_speed
             self.current_speed = start_speed_for_resume
-            self.start_speed = start_speed_for_resume  # Передаем в профиль разгона
+            self.start_speed = start_speed_for_resume
             self._calculate_profile(remaining_distance)
             self.state = self.State.Accel
             self.pause_acceleration = 0
             self.state_time = 0
 
     def _calculate_profile(self, remaining_distance):
-        v0 = max(self.start_speed, self.min_speed)   # начало сегмента
-        vmin_end = max(self.end_speed, self.min_speed)   # конечная скорость сегмента
+        v0 = max(self.start_speed, self.min_speed)
+        vmin_end = max(self.end_speed, self.min_speed)
         vmax = max(self.max_speed, self.min_speed)
         a = self.acceleration
         s = remaining_distance
@@ -161,13 +159,11 @@ class StepperFSM:
                 if self.current_speed < self.min_speed:
                     self.current_speed = self.min_speed
             else:
-                # Удерживаем минимальную скорость
                 self.current_speed = self.min_speed
 
             avg_speed = (prev_speed + self.current_speed) / 2
             self.position += avg_speed * dt
 
-            # Завершение движения
             if self.position >= self.total_dist and abs(self.current_speed - self.min_speed) < 1e-6:
                 self.state = self.State.Done
 
