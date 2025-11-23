@@ -20,4 +20,4 @@ class Square(TestCaseBase):
     title: str = "Квадрат"
     test_paths: list= ml((1200,0),(1200,1200),(0,1200),(0,0),)
 
-ALL_CASES = [TestCaseBase(), Square()]
+ALL_CASES = [TestCaseBase, Square]

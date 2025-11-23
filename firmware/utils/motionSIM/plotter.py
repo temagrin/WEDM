@@ -87,7 +87,4 @@ def plot_points(title, logs, x_points, y_points, t_points):
     plt.subplots_adjust(right=1.20)
     plt.tight_layout()
     fig.canvas.manager.set_window_title(title)
-    mng = plt.get_current_fig_manager()
-    mng.window.wm_geometry("+50+50")
-
     plt.show()

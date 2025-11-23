@@ -1,6 +1,6 @@
-from utils.motionSIM.cases import TestCaseBase, ALL_CASES
-from utils.motionSIM.plotter import plot_points
-from utils.motionSIM.fake_motor_controller import MotorController
+from cases import TestCaseBase, ALL_CASES
+from plotter import plot_points
+from fake_motor_controller import MotorController
 
 def test_scenario(test_case: TestCaseBase):
     motor_controller = MotorController()
@@ -47,4 +47,4 @@ def test_scenario(test_case: TestCaseBase):
 
 if __name__ == '__main__':
     for test_case in ALL_CASES:
-        test_scenario(test_case)
+        test_scenario(test_case())
