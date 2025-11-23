@@ -7,7 +7,7 @@ StepperMotorPlanner::StepperMotorPlanner(StepperMotorController* controller)
 
 
 bool StepperMotorPlanner::moveTo(int64_t newX, int64_t newY, uint32_t tool_speed) { // постановка задачи
-    
+    return true;
 }
 
 
@@ -20,5 +20,6 @@ void StepperMotorPlanner::reset(){
 }
 
 bool StepperMotorPlanner::ready(){
+    return true;
 }
  
