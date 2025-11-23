@@ -23,6 +23,9 @@ class StepperFSM:
         self.min_speed = min_speed
         self.max_speed = 0
 
+        self.start_speed = 0
+        self.end_speed = 0
+
         # Позиции и расстояния по осям
         self.position = 0
         self.position_x = 0
@@ -42,11 +45,13 @@ class StepperFSM:
         # Состояния паузы
         self.pause_start_speed = 0
 
-    def start_move(self, distance, max_speed):
+    def start_move(self, distance, max_speed, start_speed=0, end_speed=0):
         self.total_dist = distance
         self.max_speed = max_speed
         self.position = 0
-        self.current_speed = 0
+        self.current_speed = start_speed
+        self.start_speed = start_speed
+        self.end_speed = end_speed
         self.state_time = 0
         self._calculate_profile(distance)
         self.state = self.State.Accel
@@ -72,35 +77,36 @@ class StepperFSM:
         if self.state == self.State.Pause:
             remaining_distance = self.total_dist - self.position
             speed_threshold = 1e-3
-            if self.current_speed < speed_threshold and remaining_distance > 0:
-                self.current_speed = 0
+            start_speed_for_resume = self.current_speed if self.current_speed > speed_threshold else self.min_speed
+            self.current_speed = start_speed_for_resume
+            self.start_speed = start_speed_for_resume  # Передаем в профиль разгона
             self._calculate_profile(remaining_distance)
             self.state = self.State.Accel
             self.pause_acceleration = 0
             self.state_time = 0
 
     def _calculate_profile(self, remaining_distance):
-        vmin = self.min_speed
+        v0 = max(self.start_speed, self.min_speed)   # начало сегмента
+        vmin_end = max(self.end_speed, self.min_speed)   # конечная скорость сегмента
+        vmax = max(self.max_speed, self.min_speed)
         a = self.acceleration
-        v0 = max(self.current_speed, vmin)
-        vmax = max(self.max_speed, vmin)
         s = remaining_distance
 
         accel_time = (vmax - v0) / a if vmax > v0 else 0
         accel_dist = ((vmax + v0) / 2) * accel_time
-        decel_dist = (vmax ** 2 - vmin ** 2) / (2 * a)
+        decel_dist = (vmax**2 - vmin_end**2) / (2 * a)
 
         if accel_dist + decel_dist > s:
-            max_reachable_speed = sqrt(a * s + (v0 ** 2) / 2)
-            max_reachable_speed = max(max_reachable_speed, vmin)
+            max_reachable_speed = sqrt(a * s + (v0**2 + vmin_end**2) / 2)
+            max_reachable_speed = max(max_reachable_speed, self.min_speed)
             self.max_speed = min(max_reachable_speed, vmax)
             self.accel_time = max(0.001, (self.max_speed - v0) / a if self.max_speed > v0 else 0)
             self.cruise_time = 0
-            self.decel_time = max(0.001, (self.max_speed - vmin) / a)
+            self.decel_time = max(0.001, (self.max_speed - vmin_end) / a)
         else:
             self.max_speed = vmax
             self.accel_time = max(0.001, (self.max_speed - v0) / a)
-            self.decel_time = max(0.001, (self.max_speed - vmin) / a)
+            self.decel_time = max(0.001, (self.max_speed - vmin_end) / a)
             cruise_dist = s - accel_dist - decel_dist
             self.cruise_time = max(0, cruise_dist / self.max_speed if self.max_speed != 0 else 0)
 
@@ -172,7 +178,7 @@ class StepperFSM:
 def run_test_case(description, pause_times, distance=18000, max_speed=2000):
     print(f"\n--- Test: {description} ---")
     fsm = StepperFSM(1000, 2000, 10)
-    fsm.start_move(distance, max_speed)
+    fsm.start_move(distance, max_speed, 100, 200)
 
     dt = 0.001
     time = 0.0
