@@ -33,6 +33,9 @@ def test_scenario(test_case: TestCaseBase):
         current_time += test_case.delta_t
     logs= [
         ("Время движения", f"{round((stop_time/1000000),3)}сек"),
+        ("Дельта T", f"{test_case.delta_t}мкс"),
+        ("Тики планера", f"{test_case.delta_t_planer}мкс"),
+        ("Заданая скорость", f"{test_case.max_speed}ш/с"),
         ("Тиков с шагом", f"{steps_total}"),
         ("Финиш X", f"{finish_x}"),
         ("Финиш Y", f"{finish_y}"),
