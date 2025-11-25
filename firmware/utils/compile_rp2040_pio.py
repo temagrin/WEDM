@@ -21,7 +21,6 @@ def compile_pio_files(pioasm_bin, src_dir, out_dir):
                     print(f"Error compiling {src_path}: {e}")
 
 # Запуск компиляции
-
 if __name__ == "__main__":
     script_dir = pathlib.Path(__file__).parent.resolve()
     source_directory = script_dir / "../src"

@@ -1,4 +1,5 @@
 // current_sensor.cpp
+#include <hardware/sync.h>
 #include "current_sensor.h"
 
 static CurrentSensor* irq_instance = nullptr;
@@ -65,10 +66,12 @@ void CurrentSensor::handleIRQ() {
             local_max = read_buffer[i];
         }
     }
-
     current_value = local_max;
 }
 
 uint16_t CurrentSensor::getCurrent() const {
-    return current_value;
+    bool irq_state = save_and_disable_interrupts();
+    uint16_t value = current_value;
+    restore_interrupts(irq_state);
+    return value;
 }

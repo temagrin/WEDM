@@ -16,6 +16,7 @@
 static constexpr uint32_t SCALE = 1000000000;
 static constexpr double DOUBLE_SCALE = SCALE;
 
+
 class StepperMotorController {
     struct MotorState {
         absolute_time_t stepLastTime;
@@ -47,12 +48,9 @@ public:
     static void setPowerB(const bool value){gpio_put(EN_B_PIN, MOTOR_ENABLE_INVERT ^ value);}
 
 
-
 private:
     static void initPin(uint16_t _pin, bool defaultValue);
-
     static void doSteps(uint8_t doStepMask);
-
     static bool needStep(MotorState* state, absolute_time_t now);
     MotorState stateX;
     MotorState stateY;

@@ -24,7 +24,14 @@ def test_scenario(test_case: TestCaseBase):
             break
         if motor_controller.ready() and test_paths:
             new_task = test_paths.pop(0)
-            motor_controller.move_to(new_task[0], new_task[1], test_case.max_speed)
+            if test_paths:
+                next_task = test_paths[0]
+                k = motor_controller.look_ahead(new_task[0], new_task[1], next_task[0], next_task[1])
+                max_allowed_speed = min(test_case.max_speed, test_case.max_speed)
+                junction_speed = int(max_allowed_speed * k)
+            else:
+                junction_speed = 0
+            motor_controller.move_to(new_task[0], new_task[1], test_case.max_speed, junction_speed)
         if motor_controller.tick(current_time):
             steps_total += 1
         if (current_time % test_case.delta_t_planer) == 0:

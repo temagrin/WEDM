@@ -43,5 +43,14 @@ class FastStar(TestCaseBase):
     )
     max_speed: int = 50000
 
+@dataclass
+class TestSpeed(TestCaseBase):
+    title: str = "Спид тест"
+    test_paths: list = ml(
+        (2000, 4000),
+        (5000, 4200),
+    )
+    max_speed: int = 2000
 
-ALL_CASES = [FastStar,]
+
+ALL_CASES = [TestSpeed,]

@@ -14,7 +14,6 @@ public:
     void setup();
     void tare();
     void update();
-
     int getWeight() const;
 
 private:
