@@ -7,9 +7,6 @@ from commands import CommandHelper
 def default_answer_callback(status: Status):
     print("-=Answer callback=-")
     print(f"\tlast_cammand_uid={status.last_command_uid}")
-    if status.last_command_uid == 5:
-        print(time())
-        exit(0)
 
 
 def make_command(func, **kwargs):
@@ -17,7 +14,8 @@ def make_command(func, **kwargs):
 
 
 def main():
-    connector = Connector(port_name="/dev/ttyACM0")
+    # connector = Connector(port_name="/dev/ttyACM0")
+    connector = Connector(port_name="COM20")
     connector.connect()
 
     cmd = CommandHelper(connector)
@@ -37,7 +35,7 @@ def main():
     ]
 
     last_command_time = time()
-    command_interval = 5
+    command_interval = 2
     i = 0
     while i < len(commands):
         current_time = time()
@@ -47,11 +45,11 @@ def main():
             if func(**kwargs):
                 i += 1
         connector.process()
-    print(time())
-    while True:
+
+    for i in range(10000):
         connector.process()
-        # exit(0) в колбеке default_answer_callback когда придет подтверждение задачи c uid == 5
-        # connector.disconnect()
+
+    connector.disconnect()
 
 
 if __name__ == "__main__":

@@ -1,13 +1,16 @@
 import serial
 import struct
+from collections import namedtuple
 
 DEFAULT_USB_CDC_BAUD_RATE = 921600
 SYNC_MARKER = 0xABCD
+
 COMMAND_STRUCT_FORMAT = '<HBIIIIi'
 STATUS_STRUCT_FORMAT = '<HHHhQiiiH'
-
 COMMAND_STRUCT_SIZE = struct.calcsize(COMMAND_STRUCT_FORMAT)
 STATUS_STRUCT_SIZE = struct.calcsize(STATUS_STRUCT_FORMAT)
+NamedStatus = namedtuple('NamedStatus', ['marker', 'buffer_filling', 'amperage', 'tension',
+                                         'updated_at', 'current_x', 'current_y', 'last_command_uid', 'crc'])
 
 
 def calculate_crc16(data: bytes) -> int:
@@ -25,6 +28,7 @@ def calculate_crc16(data: bytes) -> int:
 
 class Command:
     def __init__(self):
+        self._command_uid = 0
         self._command_id = 0 & 0xF
         self._flag1 = 0 & 0x1
         self._flag2 = 0 & 0x1
@@ -34,7 +38,9 @@ class Command:
         self._param2 = 0
         self._param3 = 0
         self._param4 = 0
-        self._command_uid = 0
+
+    def get_command_id(self):
+        return self._command_id
 
     def get_command_uid(self):
         return self._command_uid
@@ -49,10 +55,8 @@ class Command:
         self._param2 = abs(param2)
         self._param3 = abs(param3)
         self._param4 = abs(param4)
-        self._command_uid += 1
+        self._command_uid += 1 # каждая новая команда с новым uid
 
-    def get_command_id(self):
-        return self._command_id
 
     def _control_to_byte(self) -> int:
         return ((self._command_id & 0xF)
@@ -81,35 +85,39 @@ class Status:
         self.current_position_x = 0
         self.current_position_y = 0
         self.last_command_uid = None
-        self.current_command_uid = None
+        self.confirmation_command_uid = None
         self.command_confirmation_callback = None
         self._rx_buffer = bytearray()
 
-    def _parse_buffer(self):
-        for i in range(len(self._rx_buffer) - STATUS_STRUCT_SIZE + 1):
-            start_marker, = struct.unpack_from('<H', self._rx_buffer, i)
-            candidate = self._rx_buffer[i:i + STATUS_STRUCT_SIZE]
-            if start_marker == SYNC_MARKER:
-                data_without_crc = candidate[:-2]
-                calc_crc = calculate_crc16(data_without_crc)
-                temp_unpacked = struct.unpack_from(STATUS_STRUCT_FORMAT, candidate)
-                if calc_crc == temp_unpacked[8]:
-                    self.buffer_filling = temp_unpacked[1]
-                    self.amperage = temp_unpacked[2]
-                    self.tension = temp_unpacked[3]
-                    self.updated_at = temp_unpacked[4]
-                    self.current_position_x = temp_unpacked[5]
-                    self.current_position_y = temp_unpacked[6]
-                    self.last_command_uid = temp_unpacked[7]
-                    self._check_new()
-                self._rx_buffer = self._rx_buffer[i + STATUS_STRUCT_SIZE:]
-                return
-        self._rx_buffer = self._rx_buffer[-(STATUS_STRUCT_SIZE - 1):]
+    def _try_consume_buffer(self):
+        start_marker, = struct.unpack_from('<H', self._rx_buffer, 0)
+        if start_marker != SYNC_MARKER:
+            return False # первые 2 байта не маркер - выкидывайте один байт, ждите новый байт
+
+        data_without_crc = self._rx_buffer[:-2]
+        calc_crc = calculate_crc16(data_without_crc)
+        unpacked = NamedStatus._make(struct.unpack_from(STATUS_STRUCT_FORMAT, self._rx_buffer[:STATUS_STRUCT_SIZE]))
+        if calc_crc != unpacked.crc:
+            return False # не прошел проверку crc - выкидывайте один байт, ждите новый байт
+
+        self.buffer_filling = unpacked.buffer_filling
+        self.amperage = unpacked.amperage
+        self.tension = unpacked.tension
+        self.updated_at = unpacked.updated_at
+        self.current_position_x = unpacked.current_x
+        self.current_position_y = unpacked.current_y
+        self.last_command_uid = unpacked.last_command_uid
+        self._check_new()
+        return True # потребили 30 байт, можно убрать с буфера 30 байт
 
     def add_incoming_byte(self, incoming):
+        # приняли один байт, добавляем в буфер
         self._rx_buffer += incoming
         if len(self._rx_buffer) >= STATUS_STRUCT_SIZE:
-            self._parse_buffer()
+            if self._try_consume_buffer():
+                self._rx_buffer = self._rx_buffer[STATUS_STRUCT_SIZE:]
+            else:
+                self._rx_buffer = self._rx_buffer[-(STATUS_STRUCT_SIZE - 1):]
 
     def _check_new(self):
         print("-=Read new status=-")
@@ -120,9 +128,13 @@ class Status:
         print(f"\tcurrent_position_x={self.current_position_x}")
         print(f"\tcurrent_position_y={self.current_position_y}")
         print(f"\tlast_command_uid={self.last_command_uid}")
-        if self.last_command_uid == self.current_command_uid and self.command_confirmation_callback:
-            self.command_confirmation_callback(self)
-            self.current_command_uid = None
+        # подтверждаем обработку крайней задачи
+        if self.last_command_uid == self.confirmation_command_uid:
+            # если нужен колбек у команды - его вызываем
+            if self.command_confirmation_callback:
+                self.command_confirmation_callback(self)
+            # очищаем подтверждение - освобождая место под новую команду
+            self.confirmation_command_uid = None
             self.command_confirmation_callback = None
 
 
@@ -136,10 +148,12 @@ class Connector:
         self._tx_buffer = None
 
     def process(self):
+        # если чето нужно было отправить - отправляем
         if self._tx_buffer:
             self._port.write(self._tx_buffer)
             self._port.flush()
             self._tx_buffer = None
+        # читаем если есть очередной байт в rx буфер статуса
         incoming = self._port.read(1)
         if incoming:
             self.status.add_incoming_byte(incoming)
@@ -149,10 +163,12 @@ class Connector:
         self._port = serial.Serial(self._port_name, DEFAULT_USB_CDC_BAUD_RATE, timeout=self._connection_timeout)
 
     def disconnect(self):
+        print("-=Close port=-")
         self._port.close()
 
     def send_command(self, cmd: Command, confirmation_callback=None):
-        if self._tx_buffer is not None and self.status.current_command_uid is None:
+        # если uid команды еще не пришел в статусе, значит она еще в работе в мк - новую не шлем
+        if self.status.confirmation_command_uid is not None:
             return False
         cmd_bytes = cmd.render_with_crc_to_bytes()
         print("-=Send new command=-")
@@ -160,5 +176,5 @@ class Connector:
         print(f"\tcmdUid={cmd.get_command_uid()}")
         self._tx_buffer = cmd_bytes
         self.status.command_confirmation_callback = confirmation_callback
-        self.status.current_command_uid = cmd.get_command_uid()
+        self.status.confirmation_command_uid = cmd.get_command_uid()
         return True
