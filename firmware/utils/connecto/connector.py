@@ -107,7 +107,7 @@ class Status:
         self.current_position_x = unpacked.current_x
         self.current_position_y = unpacked.current_y
         self.last_command_uid = unpacked.last_command_uid
-        self._check_new()
+        self._check_new_status()
         return True # потребили 30 байт, можно убрать с буфера 30 байт
 
     def add_incoming_byte(self, incoming):
@@ -119,7 +119,7 @@ class Status:
             else:
                 self._rx_buffer = self._rx_buffer[-(STATUS_STRUCT_SIZE - 1):]
 
-    def _check_new(self):
+    def _check_new_status(self):
         print("-=Read new status=-")
         print(f"\tupdated_at={self.updated_at}")
         print(f"\tbuffer_filling={self.buffer_filling}")
