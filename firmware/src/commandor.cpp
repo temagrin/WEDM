@@ -1,10 +1,8 @@
-#include <pico/error.h>
-#include <pico/stdio.h>
 #include <cstring>
 #include <cstdio>
 #include <pico/time.h>
 #include "commandor.h"
-
+#include "tusb.h"
 
 CommandManager::CommandManager(
         StepperMotorController* _motorController,
@@ -16,15 +14,17 @@ CommandManager::CommandManager(
     status.start_marker = SYNC_MARKER;
 }
 
+
 void CommandManager::sendStatus() {
-//    printf("\n%d %d %d %d\n", RESPONSE_PACKET_SIZE, sizeof(uint16_t), sizeof(int16_t), sizeof(int32_t));
     status.now = get_absolute_time();
     status.amperage = currentSensor->getCurrent();
-
+    status.tension = 69;
+    status.currentPositionX = motorController->getCurrentPositionX();
+    status.currentPositionY = motorController->getCurrentPositionY();
     uint16_t crc = calculate_crc16((uint8_t*)&status,RESPONSE_DATA_SIZE);
     status.crc16 = crc;
-    fwrite((const void*)&status, RESPONSE_PACKET_SIZE, 1, stdout);
-    fflush(stdout);
+    tud_cdc_write((const uint8_t *)&status, RESPONSE_PACKET_SIZE);
+    tud_cdc_write_flush();
 }
 
 uint16_t CommandManager::calculate_crc16(const uint8_t *data, size_t length) {
@@ -42,8 +42,9 @@ uint16_t CommandManager::calculate_crc16(const uint8_t *data, size_t length) {
 }
 
 void CommandManager::parseCommand() {
-    int byte = getchar_timeout_us(0);
-    if (byte != PICO_ERROR_TIMEOUT) {
+    if (tud_cdc_available() > 0) {
+        uint8_t byte;
+        tud_cdc_read(&byte, 1);
         memmove(receiveBuffer, receiveBuffer + 1, COMMAND_PACKET_SIZE - 1);
         receiveBuffer[COMMAND_PACKET_SIZE - 1] = (uint8_t)byte;
         auto *cmd = (Command *)receiveBuffer;
@@ -60,9 +61,27 @@ void CommandManager::parseCommand() {
 }
 
 void CommandManager::processReceivedCommand(Command *cmd) {
-    status.currentPositionX = (int32_t)cmd->param1;
-    status.currentPositionY = (int32_t)cmd->param2;
-    sendStatus();
+    status.lastCommandUID = cmd->commandUID;
+    switch (cmd->control.commandId){
+        case 1: // команда выключить двигателей XYAB
+            StepperMotorController::setPowerXY(cmd->control.flag1);
+            StepperMotorController::setPowerA(cmd->control.flag2);
+            StepperMotorController::setPowerB(cmd->control.flag3);
+            break;
+
+        case 2: // команда задания Включить и задать скорости вращения двигателей XYAB
+            StepperMotorController::setPowerXY(true);
+            StepperMotorController::setPowerA(true);
+            StepperMotorController::setPowerB(true);
+            motorController->setSpeedX(cmd->control.flag1 ? (int32_t)cmd->param1: -(int32_t)cmd->param1);
+            motorController->setSpeedY(cmd->control.flag2 ? (int32_t)cmd->param2: -(int32_t)cmd->param2);
+            motorController->setSpeedA(cmd->control.flag3 ? (int32_t)cmd->param3: -(int32_t)cmd->param3);
+            motorController->setSpeedB(cmd->control.flag4 ? (int32_t)cmd->param4: -(int32_t)cmd->param4);
+            break;
+        default:
+            break;
+    }
+
 }
 
 

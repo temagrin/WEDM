@@ -46,9 +46,13 @@ public:
     static void setPowerXY(const bool value){gpio_put(EN_X_Y_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerA(const bool value){gpio_put(EN_A_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerB(const bool value){gpio_put(EN_B_PIN, MOTOR_ENABLE_INVERT ^ value);}
+    int32_t getCurrentPositionX(){return currentPositionX;}
+    int32_t getCurrentPositionY(){return currentPositionY;}
 
 
 private:
+    int32_t currentPositionX;
+    int32_t currentPositionY;
     static void initPin(uint16_t _pin, bool defaultValue);
     static void doSteps(uint8_t doStepMask);
     static bool needStep(MotorState* state, absolute_time_t now);

@@ -1,0 +1,6 @@
+# для приложения
+wxPython
+pyserial
+# для симуляции
+numpy
+pyQt5

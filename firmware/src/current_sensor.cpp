@@ -71,7 +71,7 @@ void CurrentSensor::handleIRQ() {
 
 uint16_t CurrentSensor::getCurrent() const {
     bool irq_state = save_and_disable_interrupts();
-    uint16_t value = current_value;
+    auto value = (uint16_t)current_value;
     restore_interrupts(irq_state);
     return value;
 }

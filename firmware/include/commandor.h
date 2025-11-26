@@ -16,13 +16,14 @@ struct CommandControlByte {
 } __attribute__((packed));
 
 struct Command {
-    uint16_t start_marker;
-    CommandControlByte control;
-    uint32_t param1;
-    uint32_t param2;
-    uint32_t param3;
-    uint32_t param4;
-    uint16_t crc16;
+    uint16_t start_marker;      // 2
+    CommandControlByte control; // 1
+    uint32_t param1;            // 4
+    uint32_t param2;            // 4
+    uint32_t param3;            // 4
+    uint32_t param4;            // 4
+    int32_t commandUID;         // 4
+    uint16_t crc16;             // 2
 } __attribute__((packed));
 
 
@@ -34,6 +35,7 @@ struct Status {
     absolute_time_t now;         // 8 байт
     int32_t currentPositionX;    // 4 байта
     int32_t currentPositionY;    // 4 байта
+    int32_t lastCommandUID;      // 4 байта
     uint16_t crc16;              // 2 байта
 } __attribute__((packed));
 
@@ -56,7 +58,7 @@ private:
     PulseGenerator* pulseGenerator;
     Status status;
     uint8_t receiveBuffer[COMMAND_PACKET_SIZE];
-    static uint16_t calculate_crc16(const uint8_t *data, size_t length);
+    uint16_t calculate_crc16(const uint8_t *data, size_t length);
     void processReceivedCommand(Command *cmd);
 };
 #endif //FIRMWARE_COMMANDOR_H

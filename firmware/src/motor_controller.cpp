@@ -76,10 +76,17 @@ void StepperMotorController::doSteps(const uint8_t doStepMask){
 
 void StepperMotorController::tick(const absolute_time_t now){
     uint8_t needStepBits = 0;
-    needStepBits |= (needStep(&stateX, now) & 1);
-    needStepBits |= (needStep(&stateY, now) & 1) << 1;
+    bool needStepX = needStep(&stateX, now);
+    bool needStepY = needStep(&stateY, now);
+
+    if (needStepX) currentPositionX += stateX.direction ? 1 : -1;
+    if (needStepY) currentPositionY += stateY.direction ? 1 : -1;
+
+    needStepBits |= (needStepX & 1);
+    needStepBits |= (needStepY & 1) << 1;
     needStepBits |= (needStep(&stateA, now) & 1) << 2;
     needStepBits |= (needStep(&stateB, now) & 1) << 3;   
+
     if (needStepBits!=0) doSteps(needStepBits);
 
 }
