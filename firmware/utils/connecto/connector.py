@@ -170,11 +170,10 @@ class Connector:
         # если uid команды еще не пришел в статусе, значит она еще в работе в мк - новую не шлем
         if self.status.confirmation_command_uid is not None:
             return False
-        cmd_bytes = cmd.render_with_crc_to_bytes()
-        print("-=Send new command=-")
+        print("-=New command to send=-")
         print(f"\tcmdId={cmd.get_command_id()}")
         print(f"\tcmdUid={cmd.get_command_uid()}")
-        self._tx_buffer = cmd_bytes
+        self._tx_buffer = cmd.render_with_crc_to_bytes()
         self.status.command_confirmation_callback = confirmation_callback
         self.status.confirmation_command_uid = cmd.get_command_uid()
         return True
