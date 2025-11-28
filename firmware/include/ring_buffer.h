@@ -17,40 +17,19 @@ struct MotorCommand{
 
 class CommandRingBuffer{
 public:
-    bool push(uint8_t ctrl_flags, uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY)
-    {
-        if (isFull())
-            return false;
-        MotorCommand mc{ctrl_flags, stepsX, stepsY, speedX, speedY};
-        buffer_[writeIndex_] = mc;
-        writeIndex_ = (writeIndex_ + 1) & MASK;
-        ++count_;
-        return true;
-    }
+    bool push(uint8_t ctrl_flags, uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY);
+    bool pop(MotorCommand& out);
 
-    bool pop(MotorCommand& out)
-    {
-        if (isEmpty())
-            return false;
+    [[nodiscard]] inline std::size_t available() const {return capacity() - size();}
 
-        out = buffer_[readIndex_];
-        readIndex_  = (readIndex_  + 1) & MASK;
-        --count_;
-        return true;
-    }
+    [[nodiscard]] inline bool isEmpty() const { return count_ == 0; }
+    [[nodiscard]] inline bool isFull()  const { return count_ == COMMAND_BUFFER_SIZE; }
 
-    [[nodiscard]] std::size_t available() const {
-        return capacity() - size();
-    }
-
-    [[nodiscard]] bool isEmpty() const { return count_ == 0; }
-    [[nodiscard]] bool isFull()  const { return count_ == COMMAND_BUFFER_SIZE; }
-
-    [[nodiscard]] std::size_t size() const { return count_; }
-    [[nodiscard]] static std::size_t capacity() { return COMMAND_BUFFER_SIZE; }
+    [[nodiscard]] inline std::size_t size() const { return count_; }
+    [[nodiscard]] inline static std::size_t capacity() { return COMMAND_BUFFER_SIZE; }
 
 private:
-    MotorCommand buffer_[COMMAND_BUFFER_SIZE];
+    MotorCommand buffer_[COMMAND_BUFFER_SIZE]{};
     std::size_t writeIndex_ = 0;
     std::size_t readIndex_  = 0;
     volatile std::size_t count_ = 0;

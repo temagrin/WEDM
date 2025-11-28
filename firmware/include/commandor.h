@@ -13,7 +13,6 @@ struct PacketHeader {
     uint16_t start_mark;      // 2 байта стартовый маркер
     uint16_t seq_id;          // 2 байта идентификатор пачки
     uint8_t  size_reserved;   // 4 бита размер (0-15), 4 бита зарезервировано
-    // size: (size_reserved & 0x0F), reserved: (size_reserved >> 4)
 } __attribute__((packed)) ;
 
 struct Command {

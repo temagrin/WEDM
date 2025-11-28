@@ -30,7 +30,7 @@ class StepperMotorController {
     };
 
 public:
-    StepperMotorController(const CommandRingBuffer& q);
+    StepperMotorController(CommandRingBuffer& q);
     void initMotors();
     void tick(absolute_time_t now);
     void checkBuffer();
@@ -55,7 +55,7 @@ public:
     void setBreak(uint8_t value); // 0 - не тормозим, 255 - полная остановка
 
 private:
-    CommandRingBuffer queue;
+    CommandRingBuffer& queue;
     int32_t currentPositionX;
     int32_t currentPositionY;
     static void initPin(uint16_t _pin, bool defaultValue);

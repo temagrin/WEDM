@@ -42,7 +42,7 @@ CommandManager::CommandManager(
 
 void CommandManager::sendStatus() {
     status.stepsBufferFree = queue.available();
-    status.amperage = currentSensor.getCurrent();
+    status.amperage = currentSensor.getCurrent()>>4;
     status.tension = 69;
     status.currentPositionX = motorController.getCurrentPositionX();
     status.currentPositionY = motorController.getCurrentPositionY();
@@ -95,8 +95,21 @@ size_t CommandManager::parseCommand() {
     if (calc_crc != recv_crc) {
         return 2;
     }
-    Packet packet{};
-    memcpy(&packet, &receiveBuffer, commandsSize);
+    Packet packet = {
+            .header = {0},
+            .crc = 0};
+    memset(packet.commands, 0, sizeof(packet.commands));
+
+    // Копируем заголовок
+    memcpy(&packet.header, receiveBuffer, sizeof(PacketHeader));
+
+    // Копируем ТОЛЬКО реальные команды (0-16)
+    size_t commands_offset = sizeof(PacketHeader);
+    memcpy(packet.commands, receiveBuffer + commands_offset, num_cmds * sizeof(Command));
+
+    // Копируем CRC
+    memcpy(&packet.crc, receiveBuffer + payloadSize, sizeof(int16_t));
+
     processReceivedPacket(&packet);
     return payloadSize+CRC_SIZE;
 }
@@ -104,8 +117,8 @@ size_t CommandManager::parseCommand() {
 void CommandManager::processReceivedPacket(Packet *packet) {
     status.seq_id = packet->header.seq_id;
     uint8_t num_cmds = packet->header.size_reserved & 0x0F;
-    uint8_t packet_flags = packet->header.size_reserved >> 4;
-
+//    uint8_t packet_flags = packet->header.size_reserved >> 4;
+//
     status.ack_mask = 0;
     status.nak_mask = (1u << num_cmds) - 1;
 
@@ -117,6 +130,7 @@ void CommandManager::processReceivedPacket(Packet *packet) {
     };
     for (uint8_t i = 0; i<num_cmds; i++) {
         const auto& cmd = packet->commands[i];
+        sleep_us(10);
         switch (cmd.cmd_id) {
             case 1: // команда 1 - добавить в очередь на исполнения шагов
                 process_cmd(i, [&]{ return queue.push(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4);});
@@ -124,6 +138,7 @@ void CommandManager::processReceivedPacket(Packet *packet) {
             case 2: // команда 2 - включить моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
                 process_cmd(i, [&]{ return StepperMotorController::powerMotors(cmd.ctrl_flags);});
                 break;
+
             default:
                 break;
         }

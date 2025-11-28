@@ -1,13 +1,13 @@
 import serial
 import struct
-from collections import namedtuple
+from color_CLI import *
 
 DEFAULT_USB_CDC_BAUD_RATE = 921600
 SYNC_MARKER = 0xABCD
 
 COMMAND_STRUCT_FORMAT = '<BBIIii'
 PACKET_HEADER_STRUCT_FORMAT = '<HHB'
-STATUS_STRUCT_FORMAT = '<HHHhIIHHHH'
+STATUS_STRUCT_FORMAT = '<HHHhiiHHHH'
 
 COMMAND_STRUCT_SIZE = struct.calcsize(COMMAND_STRUCT_FORMAT)
 PACKET_HEADER_STRUCT_SIZE = struct.calcsize(PACKET_HEADER_STRUCT_FORMAT)
@@ -76,6 +76,8 @@ class Status:
         self.un_confirmation_seq_id = None
         self.packet_confirmation_callback = None
         self._rx_buffer = bytearray()
+        self._rx_buffer2 = bytearray()
+
 
     def print_status(self):
         print("-=Read status=-")
@@ -88,6 +90,28 @@ class Status:
         print(f"\tnak_mask={self.nak_mask}")
         print(f"\tseq_id={self.seq_id}")
 
+    def _try_consume_buffer2(self):
+        if 6 >= len(self._rx_buffer2):
+            return
+
+        if self._rx_buffer2[0] != 188 or self._rx_buffer2[1] != 202:
+            return
+
+        text_len = self._rx_buffer2[2]
+        packet_end = 5 + text_len
+
+        if packet_end > len(self._rx_buffer2): # дошел еще не весь текст
+            return
+
+        # CRC над BC CA + len + text = buffer[i : i+3+text_len]
+        payload = self._rx_buffer2[0 : 3+text_len]
+        calc_crc = calculate_crc16(payload)
+        rec_crc = self._rx_buffer2[packet_end-2] | (self._rx_buffer2[packet_end-1] << 8)
+
+        if calc_crc == rec_crc:
+            text = bytes(self._rx_buffer2[3 : 3+text_len]).decode('ascii', errors='ignore')
+            del self._rx_buffer2[:packet_end]
+            print(f"{YELLOW}{BOLD}{text}{RESET}")
 
     def _try_consume_buffer(self):
         candidate = self._rx_buffer[:STATUS_STRUCT_SIZE]
@@ -112,6 +136,11 @@ class Status:
     def add_incoming_byte(self, incoming):
         # приняли один байт, добавляем в буфер
         self._rx_buffer += incoming
+        self._rx_buffer2 += incoming
+        self._try_consume_buffer2()
+        if len(self._rx_buffer2)>255:
+            self._rx_buffer2 = self._rx_buffer2[1:]
+
         if len(self._rx_buffer) >= STATUS_STRUCT_SIZE:
             if self._try_consume_buffer():
                 self._rx_buffer = self._rx_buffer[STATUS_STRUCT_SIZE:]
@@ -172,6 +201,7 @@ class Connector:
             return False
         print("-=New packet to send=-")
         print(f"\tseq_id={cmd.get_seq_id()}")
+        # print(f"{RED}{cmd.render_with_crc_to_bytes().hex()}{RESET}")
         self._tx_buffer = cmd.render_with_crc_to_bytes()
         self.status.un_confirmation_seq_id = cmd.get_seq_id()
         self.status.packet_confirmation_callback = confirmation_callback

@@ -11,6 +11,7 @@
 #include "ring_buffer.h"
 
 
+
 // интервал отправки статуса
 static const uint64_t SEND_STATUS_INTERVAL = 1000;
 
@@ -36,6 +37,18 @@ void stepper_core() {
     }
 }
 
+//int main(){
+//    stdio_init_all();
+//    tusb_init();
+//    while (!tud_cdc_connected()) { tight_loop_contents(); }
+//    while (true){
+//        sleep_ms(2000);
+//        send_printf_packet("Hello %d", 12);
+//        sleep_ms(2000);
+//        send_printf_packet("Int and Float %d %f6", 12, 7.765432);
+//    }
+//
+//}
 
 int main() {
 //    overclock();
