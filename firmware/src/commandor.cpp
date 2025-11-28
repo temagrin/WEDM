@@ -106,10 +106,6 @@ void CommandManager::processReceivedPacket(Packet *packet) {
     uint8_t num_cmds = packet->header.size_reserved & 0x0F;
     uint8_t packet_flags = packet->header.size_reserved >> 4;
 
-    // помигаем светодиодиками и флагов пакета
-    gpio_put(22, (packet_flags & 0x1 ));
-    gpio_put(20, ((packet_flags>>1) & 0x1 ));
-
     status.ack_mask = 0;
     status.nak_mask = (1u << num_cmds) - 1;
 
@@ -124,6 +120,9 @@ void CommandManager::processReceivedPacket(Packet *packet) {
         switch (cmd.cmd_id) {
             case 1: // команда 1 - добавить в очередь на исполнения шагов
                 process_cmd(i, [&]{ return queue.push(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4);});
+                break;
+            case 2: // команда 2 - включить моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
+                process_cmd(i, [&]{ return StepperMotorController::powerMotors(cmd.ctrl_flags);});
                 break;
             default:
                 break;

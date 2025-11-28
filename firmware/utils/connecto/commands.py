@@ -12,24 +12,13 @@ class CommandHelper:
         self._packet.add_command(1)
         return self._connector.send_command(self._packet, confirmation_callback=confirmation_callback)
 
-    def zero_command1(self, *args, confirmation_callback=None, **kwargs):
+    def zero_move_xy_test(self, *args, confirmation_callback=None, **kwargs):
         self._packet.new_packet(1)
-        self._packet.add_command(1)
-        return self._connector.send_command(self._packet, confirmation_callback=confirmation_callback)
+        self._packet.add_command(2, 1, 1, 1) # включить моторы
+        self._packet.add_command(1, 0,0,0,0,100,200,2000,1000)
+        self._packet.add_command(1, 0,0,0,0,1000,2000,20000,10000)
+        self._packet.add_command(1, 0,0,0,0,100,200,2000,1000)
 
-    def zero_command2(self, *args, confirmation_callback=None, **kwargs):
-        self._packet.new_packet(2)
-        self._packet.add_command(1)
-        self._packet.add_command(2)
-        self._packet.add_command(3)
 
         return self._connector.send_command(self._packet, confirmation_callback=confirmation_callback)
 
-    def zero_command3(self, *args, confirmation_callback=None, **kwargs):
-        self._packet.new_packet(3)
-        self._packet.add_command(1)
-        self._packet.add_command(2)
-        self._packet.add_command(1)
-        self._packet.add_command(2)
-
-        return self._connector.send_command(self._packet, confirmation_callback=confirmation_callback)

@@ -8,22 +8,22 @@ static constexpr std::size_t MASK = 255;
 
 struct MotorCommand{
     uint8_t  ctrl_flags;     // сам байт-команда
-    uint32_t param1;       // первый параметр
-    uint32_t param2;       // второй параметр
-    int32_t  param3;       // третий параметр
-    int32_t  param4;       // четвертый параметр
+    uint32_t stepsX;       // первый параметр
+    uint32_t stepsY;       // второй параметр
+    int32_t  speedX;       // третий параметр
+    int32_t  speedY;       // четвертый параметр
 };
 
 
 class CommandRingBuffer{
 public:
-    bool push(uint8_t ctrl_flags, uint32_t param1, uint32_t param2, int32_t param3, int32_t param4)
+    bool push(uint8_t ctrl_flags, uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY)
     {
         if (isFull())
             return false;
-        MotorCommand mc{ctrl_flags, param1, param2, param3, param4};
+        MotorCommand mc{ctrl_flags, stepsX, stepsY, speedX, speedY};
         buffer_[writeIndex_] = mc;
-        writeIndex_ = (writeIndex_ + 1) & MASK;  // вместо % N
+        writeIndex_ = (writeIndex_ + 1) & MASK;
         ++count_;
         return true;
     }

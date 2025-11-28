@@ -4,8 +4,8 @@
 #include <cstdio>
 
 
-
 StepperMotorController::StepperMotorController(const CommandRingBuffer& q):queue(q) {}
+
 
 void StepperMotorController::initPin(const uint16_t _pin, const bool defaultValue){
     gpio_init(_pin);
@@ -31,13 +31,22 @@ void StepperMotorController::initMotors(){
         
     // на всякий случай "обнуляем" время последнего шага
     doSteps(0); // установим дефолтное значение на steps пинах
+    breakFactor = 1.0;
     const absolute_time_t now = get_absolute_time();
-    stateA.stepLastTime = now;
-    stateB.stepLastTime = now;
-    stateX.stepLastTime = now;
-    stateY.stepLastTime = now;
+    stateA = {now,0, 0, 0, false, false, 0};
+    stateB = {now,0, 0, 0, false, false, 0};
+    stateX = {now,0, 0, 0, false, true, 0};
+    stateY = {now,0, 0, 0, false, true, 0};
+
 }
 
+void StepperMotorController::setBreak(uint8_t value){
+    if (oldBreakValue == value) return;
+    oldBreakValue = value;
+    breakFactor = ((255.0 - value) / 255.0);
+//    setSpeedX(originalSpeedX * breakFactor);
+    setSpeedB(originalSpeedY * breakFactor);
+}
 
 // вызывается каждую микросекунду
 bool StepperMotorController::needStep(MotorState* state, const absolute_time_t now) {
@@ -51,19 +60,42 @@ bool StepperMotorController::needStep(MotorState* state, const absolute_time_t n
         } else {
             state->stepLastTime = now;
         }
+        if (state->positionMode){
+            if (state->steps_remaining>0){
+                state->steps_remaining--;
+                return true;
+            }
+            return false;
+        }
         return true;
 }
 
+void StepperMotorController::checkBuffer(){
+    if (stateX.steps_remaining!=0 && stateY.steps_remaining!=0) return;
+// TODO какая то беда с буфером. вроде данные пишутся, но не попается
+    //    MotorCommand cmd{};
+//    if (queue.pop(cmd)){
+        stateX.steps_remaining = 10000;
+        stateY.steps_remaining = 10000;
+        originalSpeedX = 10000.0;
+        originalSpeedY = 10000.0;
+        setSpeedX(originalSpeedX * breakFactor);
+        setSpeedY(originalSpeedY * breakFactor);
+        setSpeedA(originalSpeedX);
+        setSpeedB(originalSpeedX * breakFactor);
+
+//    }
+}
+
 // вызывается редко и на другом ядре
-void StepperMotorController::setSpeed(MotorState* state, const int32_t speed){
+void StepperMotorController::setSpeed(MotorState* state, const double speed){ // шагов в милисекунду
     if (speed==0) {state->stepInterval=0; return;}
-    state->direction = speed>0;
-    const double stepInterval = 1e6/abs(speed);
+    const double stepInterval = 1e6/std::abs(speed);
     const auto intPart = static_cast<uint32_t>(stepInterval);
     const double fracPart = stepInterval - static_cast<double>(intPart);
     state->stepInterval = intPart;
     state->errorIncrement = static_cast<uint32_t>(fracPart * DOUBLE_SCALE);
-    // printf("speed=%d interval=%d.%d\n", speed, state->stepInterval, state->errorIncrement);
+    state->direction = speed>0;
 }
 
 
@@ -85,9 +117,17 @@ void StepperMotorController::tick(const absolute_time_t now){
     needStepBits |= (needStepX & 1);
     needStepBits |= (needStepY & 1) << 1;
     needStepBits |= (needStep(&stateA, now) & 1) << 2;
-    needStepBits |= (needStep(&stateB, now) & 1) << 3;   
-
+    needStepBits |= (needStep(&stateB, now) & 1) << 3;
     if (needStepBits!=0) doSteps(needStepBits);
 
 }
 
+bool StepperMotorController::powerMotors(uint8_t ctrl_flags) {
+    gpio_put(22, (ctrl_flags & 0x1));
+    gpio_put(20, (ctrl_flags>>2) & 0x1);
+
+    setPowerXY(ctrl_flags & 0x1);
+    setPowerA((ctrl_flags>>1) & 0x1);
+    setPowerB((ctrl_flags>>2) & 0x1);
+    return true;
+}

@@ -63,10 +63,13 @@ int main() {
     absolute_time_t lastSendStatusTime = 0;
     gpio_put(22, false);
     gpio_put(20, false);
-
+    uint8_t breakValue;
     while (true) {
         tud_task();
         commandManager.updateRX();
+        motorController.checkBuffer();
+        breakValue = currentSensor.getCurrent()>>4;
+        if (breakValue>2) motorController.setBreak(breakValue);
         if (absolute_time_diff_us(delayed_by_us(lastSendStatusTime, SEND_STATUS_INTERVAL), get_absolute_time())>=0){
             commandManager.sendStatus();
             lastSendStatusTime = get_absolute_time();
