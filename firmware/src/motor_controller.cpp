@@ -4,8 +4,8 @@
 #include <cstdio>
 
 
-StepperMotorController::StepperMotorController(): stateX(), stateY(), stateA(), stateB() {
-}
+
+StepperMotorController::StepperMotorController(const CommandRingBuffer& q):queue(q) {}
 
 void StepperMotorController::initPin(const uint16_t _pin, const bool defaultValue){
     gpio_init(_pin);
@@ -90,3 +90,4 @@ void StepperMotorController::tick(const absolute_time_t now){
     if (needStepBits!=0) doSteps(needStepBits);
 
 }
+

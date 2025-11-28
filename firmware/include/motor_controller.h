@@ -4,6 +4,7 @@
 #include "stepper.pio.h"
 #include <pico/time.h>
 #include "hw_config.h"
+#include "ring_buffer.h"
 
 
 #if MOTOR_STEP_INVERT
@@ -28,7 +29,7 @@ class StepperMotorController {
     };
 
 public:
-    StepperMotorController();
+    StepperMotorController(const CommandRingBuffer& q);
     void initMotors();
     void tick(absolute_time_t now);
 
@@ -51,6 +52,7 @@ public:
 
 
 private:
+    const CommandRingBuffer& queue;
     int32_t currentPositionX;
     int32_t currentPositionY;
     static void initPin(uint16_t _pin, bool defaultValue);

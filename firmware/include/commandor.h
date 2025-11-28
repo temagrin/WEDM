@@ -6,59 +6,60 @@
 #include "motor_controller.h"
 #include "current_sensor.h"
 
-struct CommandControlByte {
-    uint8_t commandId : 4;
-    uint8_t flag1 : 1;
-    uint8_t flag2 : 1;
-    uint8_t flag3 : 1;
-    uint8_t flag4 : 1;
+#define SYNC_MARKER 0xABCD
+#define MAX_COMMANDS_IN_PACKET 16
 
-} __attribute__((packed));
+struct PacketHeader {
+    uint16_t start_mark;      // 2 байта стартовый маркер
+    uint16_t seq_id;          // 2 байта идентификатор пачки
+    uint8_t  size_reserved;   // 4 бита размер (0-15), 4 бита зарезервировано
+    // size: (size_reserved & 0x0F), reserved: (size_reserved >> 4)
+} __attribute__((packed)) ;
 
 struct Command {
-    uint16_t start_marker;      // 2
-    CommandControlByte control; // 1
-    uint32_t param1;            // 4
-    uint32_t param2;            // 4
-    uint32_t param3;            // 4
-    uint32_t param4;            // 4
-    int32_t commandUID;         // 4
-    uint16_t crc16;             // 2
+    uint8_t  cmd_id;          // 1 байт ID команды
+    uint8_t  ctrl_flags;      // 1 байт контрольные флаги
+    uint32_t param1;          // 4 байта
+    uint32_t param2;          // 4 байта
+    int32_t param3;          // 4 байта
+    int32_t param4;          // 4 байта
+} __attribute__((packed));
+
+struct Packet {
+    PacketHeader header;
+    Command      commands[MAX_COMMANDS_IN_PACKET]; // максимум 16 команд, используем header.size_reserved
+    int16_t      crc;          // 2 байта CRC
 } __attribute__((packed));
 
 
 struct Status {
-    uint16_t start_marker;       // 2 байта
-    uint16_t bufferFilling;      // 2 байта
-    uint16_t amperage;           // 2 байта
-    int16_t tension;             // 2 байта
-    absolute_time_t now;         // 8 байт
-    int32_t currentPositionX;    // 4 байта
-    int32_t currentPositionY;    // 4 байта
-    int32_t lastCommandUID;      // 4 байта
-    uint16_t crc16;              // 2 байта
-} __attribute__((packed));
+    uint16_t    start_marker;       // 2 байта
+    uint16_t    stepsBufferFree;    // 2 байта   - свободно в буфере планировщика шагов
+    uint16_t    amperage;           // 2 байта   - ток ( информационно для демонстрации )  - коррекция на стороне МК
+    int16_t     tension;            // 2 байта   - натяжение ( информационно для демонстрации ) - коррекция на стороне МК
+    int32_t     currentPositionX;   // 4 байта   - положение по X ( информационно для демонстрации )
+    int32_t     currentPositionY;   // 4 байта   - положение по Y ( информационно для демонстрации )
+    uint16_t    ack_mask;           // 2 байта   - FF = вся пачка из 8ми командами с seq_id принята
+    uint16_t    nak_mask;           // 2 байта   - FF = вся пачка из 8ми командами с seq_id не принята
+    uint16_t    seq_id;             // 2 байта   - seq_id индификатор последней обработанной пачки
+    uint16_t    crc;                // 2 байта
+} __attribute__((packed)); // статусная пачка 24 байта
 
 
-#define SYNC_MARKER 0xABCD
-#define COMMAND_PACKET_SIZE sizeof(Command)
-#define COMMAND_DATA_SIZE (COMMAND_PACKET_SIZE - sizeof(uint16_t))
-#define RESPONSE_PACKET_SIZE sizeof(Status)
-#define RESPONSE_DATA_SIZE (sizeof(Status) - sizeof(uint16_t))
 
 class CommandManager{
 public:
-    CommandManager(StepperMotorController* motorController, CurrentSensor* currentSensor, PulseGenerator* pulseGenerator);
+    CommandManager(StepperMotorController& motorController, CurrentSensor& currentSensor, PulseGenerator& pulseGenerator, CommandRingBuffer& queue);
     void sendStatus();
-    void parseCommand();
+    void updateRX();
 
 private:
-    StepperMotorController* motorController;
-    CurrentSensor* currentSensor;
-    PulseGenerator* pulseGenerator;
-    Status status;
-    uint8_t receiveBuffer[COMMAND_PACKET_SIZE];
-    uint16_t calculate_crc16(const uint8_t *data, size_t length);
-    void processReceivedCommand(Command *cmd);
+    StepperMotorController& motorController;
+    CurrentSensor& currentSensor;
+    PulseGenerator& pulseGenerator;
+    CommandRingBuffer& queue;
+    Status status{};
+    size_t parseCommand();
+    void processReceivedPacket(Packet *packet);
 };
 #endif //FIRMWARE_COMMANDOR_H

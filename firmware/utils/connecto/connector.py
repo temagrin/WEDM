@@ -5,12 +5,13 @@ from collections import namedtuple
 DEFAULT_USB_CDC_BAUD_RATE = 921600
 SYNC_MARKER = 0xABCD
 
-COMMAND_STRUCT_FORMAT = '<HBIIIIi'
-STATUS_STRUCT_FORMAT = '<HHHhQiiiH'
+COMMAND_STRUCT_FORMAT = '<BBIIii'
+PACKET_HEADER_STRUCT_FORMAT = '<HHB'
+STATUS_STRUCT_FORMAT = '<HHHhIIHHHH'
+
 COMMAND_STRUCT_SIZE = struct.calcsize(COMMAND_STRUCT_FORMAT)
+PACKET_HEADER_STRUCT_SIZE = struct.calcsize(PACKET_HEADER_STRUCT_FORMAT)
 STATUS_STRUCT_SIZE = struct.calcsize(STATUS_STRUCT_FORMAT)
-NamedStatus = namedtuple('NamedStatus', ['marker', 'buffer_filling', 'amperage', 'tension',
-                                         'updated_at', 'current_x', 'current_y', 'last_command_uid', 'crc'])
 
 
 def calculate_crc16(data: bytes) -> int:
@@ -26,49 +27,34 @@ def calculate_crc16(data: bytes) -> int:
     return crc
 
 
-class Command:
+class Packet:
     def __init__(self):
-        self._command_uid = 0
-        self._command_id = 0 & 0xF
-        self._flag1 = 0 & 0x1
-        self._flag2 = 0 & 0x1
-        self._flag3 = 0 & 0x1
-        self._flag4 = 0 & 0x1
-        self._param1 = 0
-        self._param2 = 0
-        self._param3 = 0
-        self._param4 = 0
+        self._seq_id = 0
+        self.commands = []
+        self.packet_flags = 0
 
-    def get_command_id(self):
-        return self._command_id
+    def get_seq_id(self):
+        return self._seq_id
 
-    def get_command_uid(self):
-        return self._command_uid
+    def add_command(self, command_id=0, flag1=0, flag2=0, flag3=0, flag4=0, param1=0, param2=0, param3=0, param4=0):
+        if len(self.commands) >= 16:
+            raise "max allowed 16 commands in packet"
+        ctrl_flags = ((flag4 & 0x1) << 3) | ((flag3 & 0x1) << 2) | ((flag2 & 0x1) << 1) | (flag1 & 0x1)
+        self.commands.append(struct.pack(COMMAND_STRUCT_FORMAT, (command_id & 0xFF), (ctrl_flags & 0xFF),
+                                         param1, param2, param3, param4))
 
-    def set_attr(self, command_id=0, flag1=0, flag2=0, flag3=0, flag4=0, param1=0, param2=0, param3=0, param4=0):
-        self._command_id = command_id & 0xF
-        self._flag1 = flag1 & 0x1
-        self._flag2 = flag2 & 0x1
-        self._flag3 = flag3 & 0x1
-        self._flag4 = flag4 & 0x1
-        self._param1 = abs(param1)
-        self._param2 = abs(param2)
-        self._param3 = abs(param3)
-        self._param4 = abs(param4)
-        self._command_uid += 1 # каждая новая команда с новым uid
-
-
-    def _control_to_byte(self) -> int:
-        return ((self._command_id & 0xF)
-                | ((self._flag1 & 0x1) << 4)
-                | ((self._flag2 & 0x1) << 5)
-                | ((self._flag3 & 0x1) << 6)
-                | ((self._flag4 & 0x1) << 7))
+    def new_packet(self, packet_flags):
+        self.commands = []
+        self.packet_flags = packet_flags & 0xF
+        self._seq_id += 1
+        if self._seq_id > 10001:
+            self._seq_id = 0
 
     def render_with_crc_to_bytes(self) -> bytes:
-        control_byte_val = self._control_to_byte()
-        data_part = struct.pack(COMMAND_STRUCT_FORMAT, SYNC_MARKER, control_byte_val,
-                                self._param1, self._param2, self._param3, self._param4, self._command_uid)
+        size_reserved = ((self.packet_flags & 0x0F) << 4) | (len(self.commands) & 0x0F)
+        data_part = struct.pack(PACKET_HEADER_STRUCT_FORMAT, SYNC_MARKER, self._seq_id, size_reserved)
+        for c in self.commands:
+            data_part += c
         crc_value = calculate_crc16(data_part)
         crc_part = struct.pack('<H', crc_value)
         full_packet = data_part + crc_part
@@ -77,38 +63,51 @@ class Command:
 
 class Status:
     def __init__(self):
-        self.has_new_status = False
-        self.updated_at = 0
         self.buffer_filling = 0
         self.amperage = 0
         self.tension = 0
         self.current_position_x = 0
         self.current_position_y = 0
-        self.last_command_uid = None
-        self.confirmation_command_uid = None
-        self.command_confirmation_callback = None
+        self.ack_mask = None
+        self.nak_mask = None
+        self.seq_id = None
+        self.sent_seq_id = False
+        self.sent_batch_commands_count = 0
+        self.un_confirmation_seq_id = None
+        self.packet_confirmation_callback = None
         self._rx_buffer = bytearray()
 
+    def print_status(self):
+        print("-=Read status=-")
+        print(f"\tbuffer_filling={self.buffer_filling}")
+        print(f"\tamperage={self.amperage}")
+        print(f"\ttension={self.tension}")
+        print(f"\tcurrent_position_x={self.current_position_x}")
+        print(f"\tcurrent_position_y={self.current_position_y}")
+        print(f"\tack_mask={self.ack_mask}")
+        print(f"\tnak_mask={self.nak_mask}")
+        print(f"\tseq_id={self.seq_id}")
+
+
     def _try_consume_buffer(self):
-        start_marker, = struct.unpack_from('<H', self._rx_buffer, 0)
-        if start_marker != SYNC_MARKER:
-            return False # первые 2 байта не маркер - выкидывайте один байт, ждите новый байт
+        candidate = self._rx_buffer[:STATUS_STRUCT_SIZE]
+        marker, v1, v2, v3, v4, v5, ack_mask, nak_mask, seq_id, r_crc = struct.unpack_from(STATUS_STRUCT_FORMAT,
+                                                                                           candidate)
+        if marker != SYNC_MARKER:
+            return False  # первые 2 байта не маркер - выкидывайте один байт, ждите новый байт
 
-        data_without_crc = self._rx_buffer[:-2]
-        calc_crc = calculate_crc16(data_without_crc)
-        unpacked = NamedStatus._make(struct.unpack_from(STATUS_STRUCT_FORMAT, self._rx_buffer[:STATUS_STRUCT_SIZE]))
-        if calc_crc != unpacked.crc:
-            return False # не прошел проверку crc - выкидывайте один байт, ждите новый байт
-
-        self.buffer_filling = unpacked.buffer_filling
-        self.amperage = unpacked.amperage
-        self.tension = unpacked.tension
-        self.updated_at = unpacked.updated_at
-        self.current_position_x = unpacked.current_x
-        self.current_position_y = unpacked.current_y
-        self.last_command_uid = unpacked.last_command_uid
-        self._check_new_status()
-        return True # потребили 30 байт, можно убрать с буфера 30 байт
+        calc_crc = calculate_crc16(candidate[:-2])
+        if calc_crc != r_crc:
+            return False  # не прошел проверку crc - выкидывайте один байт, ждите новый байт
+        self.buffer_filling = v1
+        self.amperage = v2
+        self.tension = v3
+        self.current_position_x = v4
+        self.current_position_y = v5
+        self.ack_mask = ack_mask
+        self.nak_mask = nak_mask
+        self.seq_id = seq_id
+        return True  # потребили 24 байта, можно убрать с буфера 24 байта
 
     def add_incoming_byte(self, incoming):
         # приняли один байт, добавляем в буфер
@@ -116,26 +115,27 @@ class Status:
         if len(self._rx_buffer) >= STATUS_STRUCT_SIZE:
             if self._try_consume_buffer():
                 self._rx_buffer = self._rx_buffer[STATUS_STRUCT_SIZE:]
+                self._process_status()
             else:
                 self._rx_buffer = self._rx_buffer[-(STATUS_STRUCT_SIZE - 1):]
 
-    def _check_new_status(self):
-        print("-=Read new status=-")
-        print(f"\tupdated_at={self.updated_at}")
-        print(f"\tbuffer_filling={self.buffer_filling}")
-        print(f"\tamperage={self.amperage}")
-        print(f"\ttension={self.tension}")
-        print(f"\tcurrent_position_x={self.current_position_x}")
-        print(f"\tcurrent_position_y={self.current_position_y}")
-        print(f"\tlast_command_uid={self.last_command_uid}")
-        # подтверждаем обработку крайней задачи
-        if self.last_command_uid == self.confirmation_command_uid:
-            # если нужен колбек у команды - его вызываем
-            if self.command_confirmation_callback:
-                self.command_confirmation_callback(self)
-            # очищаем подтверждение - освобождая место под новую команду
-            self.confirmation_command_uid = None
-            self.command_confirmation_callback = None
+    def _process_status(self):
+        if self.un_confirmation_seq_id and self.seq_id == self.un_confirmation_seq_id:
+            print("-=Обрабатываем результат подтверждения пачки")
+            total_processed = bin(self.ack_mask | self.nak_mask).count('1')
+            if total_processed != self.sent_batch_commands_count:
+                print("\tОшибка, сумма ack+nak != размеру пачки")
+                # переотправка пачки
+            nak_bits = [i for i in range(16) if (self.nak_mask & (1 << i))]
+            if nak_bits:
+                print(f"\tНе приняты команды с индексами {nak_bits}")
+                # переотправка части команд в пачке
+            ack_bits = [i for i in range(16) if (self.ack_mask & (1 << i))]
+            if ack_bits:
+                print(f"\tПриняты команды с индексами {ack_bits}")
+                # отмечаем команды в пачке как обработанные
+            self.packet_confirmation_callback(self)
+            self.un_confirmation_seq_id = None
 
 
 class Connector:
@@ -166,14 +166,14 @@ class Connector:
         print("-=Close port=-")
         self._port.close()
 
-    def send_command(self, cmd: Command, confirmation_callback=None):
+    def send_command(self, cmd: Packet, confirmation_callback=None):
         # если uid команды еще не пришел в статусе, значит она еще в работе в мк - новую не шлем
-        if self.status.confirmation_command_uid is not None:
+        if self.status.un_confirmation_seq_id is not None:
             return False
-        print("-=New command to send=-")
-        print(f"\tcmdId={cmd.get_command_id()}")
-        print(f"\tcmdUid={cmd.get_command_uid()}")
+        print("-=New packet to send=-")
+        print(f"\tseq_id={cmd.get_seq_id()}")
         self._tx_buffer = cmd.render_with_crc_to_bytes()
-        self.status.command_confirmation_callback = confirmation_callback
-        self.status.confirmation_command_uid = cmd.get_command_uid()
+        self.status.un_confirmation_seq_id = cmd.get_seq_id()
+        self.status.packet_confirmation_callback = confirmation_callback
+        self.status.sent_batch_commands_count = len(cmd.commands)
         return True

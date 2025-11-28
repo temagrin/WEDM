@@ -8,12 +8,17 @@
 #include "current_sensor.h"
 #include "commandor.h"
 #include "pulse_generator.h"
+#include "ring_buffer.h"
 
 
-StepperMotorController motorController;
+// интервал отправки статуса
+static const uint64_t SEND_STATUS_INTERVAL = 1000;
+
+CommandRingBuffer queue;
+StepperMotorController motorController(queue);
 CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 PulseGenerator pulseGenerator(PULSE_PIN);
-CommandManager commandManager(&motorController, &currentSensor, &pulseGenerator);
+CommandManager commandManager(motorController, currentSensor, pulseGenerator, queue);
 
 void overclock() {
     vreg_set_voltage(VREG_VOLTAGE_1_20);         // For >133 MHz
@@ -31,21 +36,40 @@ void stepper_core() {
     }
 }
 
+
 int main() {
 //    overclock();
-
     stdio_init_all();
     tusb_init();
     motorController.initMotors();
     currentSensor.start();
+    // TODO инит настройка HX711
+
     while (!tud_cdc_connected()) { tight_loop_contents(); }
-    // инит настройка HX711
+
     sleep_ms(2000);
+
+    gpio_init(22);
+    gpio_set_dir(22, GPIO_OUT);
+    gpio_put(22, true);
+
+    gpio_init(20);
+    gpio_set_dir(20, GPIO_OUT);
+    gpio_put(20, true);
+
+    sleep_ms(1000);
+
     multicore_launch_core1(&stepper_core);
+    absolute_time_t lastSendStatusTime = 0;
+    gpio_put(22, false);
+    gpio_put(20, false);
 
     while (true) {
         tud_task();
-        commandManager.sendStatus();
-        commandManager.parseCommand();
+        commandManager.updateRX();
+        if (absolute_time_diff_us(delayed_by_us(lastSendStatusTime, SEND_STATUS_INTERVAL), get_absolute_time())>=0){
+            commandManager.sendStatus();
+            lastSendStatusTime = get_absolute_time();
+        }
     }
 }
