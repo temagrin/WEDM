@@ -1,11 +1,13 @@
 // motor_controller.cpp
 #include "motor_controller.h"
+#include "bilog.h"
 
-#include <cmath>
 #include <cstdio>
+#include <valarray>
 
 
-StepperMotorController::StepperMotorController(CommandRingBuffer& q):queue(q) {}
+StepperMotorController::StepperMotorController(CommandRingBuffer &q, MotorState &stateA, MotorState &stateB,MotorState &stateX,MotorState &stateY)
+        : queue(q), stateA(stateA), stateB(stateB), stateX(stateX),stateY(stateY) {}
 
 
 void StepperMotorController::initPin(const uint16_t _pin, const bool defaultValue){
@@ -34,36 +36,31 @@ void StepperMotorController::initMotors(){
     doSteps(0); // установим дефолтное значение на steps пинах
     breakFactor = 1.0;
     const absolute_time_t now = get_absolute_time();
-    stateA = {now,0, 0, 0, false, false, 0};
-    stateB = {now,0, 0, 0, false, false, 0};
-    stateX = {now,0, 0, 0, false, true, 0};
-    stateY = {now,0, 0, 0, false, true, 0};
-
 }
 
 void StepperMotorController::setBreak(uint8_t value){
-    if (oldBreakValue == value) return;
-    oldBreakValue = value;
-    breakFactor = ((255.0 - value) / 255.0);
-    setSpeedX(originalSpeedX * breakFactor);
-    setSpeedY(originalSpeedY * breakFactor);
+//    if (oldBreakValue == value) return;
+//    oldBreakValue = value;
+//    breakFactor = ((255.0 - value) / 255.0);
+//    setSpeedX(originalSpeedX * breakFactor);
+//    setSpeedY(originalSpeedY * breakFactor);
 }
 
 // вызывается каждую микросекунду
-bool StepperMotorController::needStep(MotorState* state, const absolute_time_t now) {
-        if (state->stepInterval == 0) return false; // шагание выключено
-        if (absolute_time_diff_us(delayed_by_us(state->stepLastTime, state->stepInterval), now)<0) return false; // время не пришло
-        state->errorAccumulator+=state->errorIncrement; // добавляем в ошибку величину интервала которую мы не дождались
+bool StepperMotorController::needStep(MotorState& state, const absolute_time_t now) {
+        if (state.stepInterval == 0) return false; // шагание выключено
+        if (absolute_time_diff_us(delayed_by_us(state.stepLastTime, state.stepInterval), now)<0) return false; // время не пришло
+        state.errorAccumulator+=state.errorIncrement; // добавляем в ошибку величину интервала которую мы не дождались
         // если накопилось неучтенного задержки, то следуйщий шаг надо сделать на квант времени позже
-        if (state->errorAccumulator>SCALE){
-            state->stepLastTime = delayed_by_us(now, 1); // следующий шаг сделаем микросекундой позже чем обычно
-            state->errorAccumulator-=SCALE; // и вычтем из аккумулятора ошибки, что это накопление мы скомпенсировали смещением времени следующего шага
+        if (state.errorAccumulator>SCALE){
+            state.stepLastTime = delayed_by_us(now, 1); // следующий шаг сделаем микросекундой позже чем обычно
+            state.errorAccumulator-=SCALE; // и вычтем из аккумулятора ошибки, что это накопление мы скомпенсировали смещением времени следующего шага
         } else {
-            state->stepLastTime = now;
+            state.stepLastTime = now;
         }
-        if (state->positionMode){
-            if (state->steps_remaining>0){
-                state->steps_remaining--;
+        if (state.positionMode){
+            if (state.steps_remaining>0){
+                state.steps_remaining--;
                 return true;
             }
             return false;
@@ -72,28 +69,33 @@ bool StepperMotorController::needStep(MotorState* state, const absolute_time_t n
 }
 
 void StepperMotorController::checkBuffer(){
-    if (stateX.steps_remaining!=0 && stateY.steps_remaining!=0) return;
+    if (!stateX.ready) return;
+    if (!stateY.ready) return;
+
     MotorCommand cmd{0};
     if (queue.pop(cmd)) {
+        printf_("sb::%d %d\n", stateX.steps_remaining, stateY.steps_remaining);
         gpio_put(22, (cmd.ctrl_flags & 0x1));
         gpio_put(20, (cmd.ctrl_flags >> 1) & 0x1);
         stateX.steps_remaining = cmd.stepsX;
         stateY.steps_remaining = cmd.stepsY;
-        originalSpeedX = cmd.speedX;
-        originalSpeedY = cmd.speedY;
-        setSpeedX(originalSpeedX * breakFactor);
-        setSpeedY(originalSpeedY * breakFactor);
+        setSpeedX(cmd.speedX);
+        setSpeedY(cmd.speedY);
+        stateX.ready = false;
+        stateY.ready = false;
+        printf_("sa::%d %d\n", stateX.steps_remaining, stateY.steps_remaining);
+
     }
 }
 
-void StepperMotorController::setSpeed(MotorState* state, const double speed){ // шагов в секунду
-    if (speed==0) {state->stepInterval=0; return;}
-    const double stepInterval = 1e6/std::abs(speed);
+void StepperMotorController::setSpeed(MotorState& state, const int32_t speed){ // шагов в секунду
+    if (speed==0) {state.stepInterval=0; return;}
+    const double stepInterval = 1e6/abs(speed);
     const auto intPart = static_cast<uint32_t>(stepInterval);
     const double fracPart = stepInterval - static_cast<double>(intPart);
-    state->stepInterval = intPart;
-    state->errorIncrement = static_cast<uint32_t>(fracPart * DOUBLE_SCALE);
-    state->direction = speed>0;
+    state.stepInterval = intPart;
+    state.errorIncrement = static_cast<uint32_t>(fracPart * DOUBLE_SCALE);
+    state.direction = speed>0;
 }
 
 
@@ -106,23 +108,28 @@ void StepperMotorController::doSteps(const uint8_t doStepMask){
 
 void StepperMotorController::tick(const absolute_time_t now){
     uint8_t needStepBits = 0;
-    bool needStepX = needStep(&stateX, now);
-    bool needStepY = needStep(&stateY, now);
+    bool needStepX = needStep(stateX, now);
+    bool needStepY = needStep(stateY, now);
 
     if (needStepX) currentPositionX += stateX.direction ? 1 : -1;
     if (needStepY) currentPositionY += stateY.direction ? 1 : -1;
 
     needStepBits |= (needStepX & 1);
     needStepBits |= (needStepY & 1) << 1;
-    needStepBits |= (needStep(&stateA, now) & 1) << 2;
-    needStepBits |= (needStep(&stateB, now) & 1) << 3;
+    needStepBits |= (needStep(stateA, now) & 1) << 2;
+    needStepBits |= (needStep(stateB, now) & 1) << 3;
     if (needStepBits!=0) doSteps(needStepBits);
-
+    if (stateX.steps_remaining == 0) stateX.ready=true;
+    if (stateY.steps_remaining == 0) stateY.ready=true;
 }
 
 bool StepperMotorController::powerMotors(uint8_t ctrl_flags) {
     setPowerXY(ctrl_flags & 0x1);
     setPowerA((ctrl_flags>>1) & 0x1);
     setPowerB((ctrl_flags>>2) & 0x1);
+    if ((ctrl_flags>>3) & 0x1) {
+        currentPositionX = 0;
+        currentPositionY = 0;
+    }
     return true;
 }

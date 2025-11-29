@@ -2,10 +2,12 @@ from time import sleep, time
 
 from connector import Connector, Status
 from commands import CommandHelper
+from color_CLI import *
 
 
 def default_answer_callback(status: Status):
-    print("-=Answer callback=-")
+    pass
+    # print("-=Answer callback=-")
     # status.print_status()
 
 
@@ -26,21 +28,8 @@ def main():
         # make_command(cmd.zero_move_xy_test2, confirmation_callback=default_answer_callback),
     ]
 
-    # last_command_time = time()
-    # command_interval = 3
-    # i = 0
-    # while i < len(commands):
-    #     current_time = time()
-    #     if current_time - last_command_time >= command_interval and commands:
-    #         last_command_time = current_time
-    #         func, kwargs = commands[i]
-    #         if func(**kwargs):
-    #             i += 1
-    #     # connector.process()
-
     last_command_time = time()
     command_interval = 2
-
 
     c = 0
     for i in range(1200000000):
@@ -52,7 +41,7 @@ def main():
                 func, kwargs = commands[c]
                 func(**kwargs)
                 c+=1
-            print(f"xy = [{connector.status.current_position_x}:{connector.status.current_position_y}] s:[{connector.status.seq_id}]")
+            print(f"[{connector.status.seq_id}]::{CYAN}{connector.status.current_position_x}|{connector.status.current_position_y}{RESET}")
     connector.disconnect()
 
 

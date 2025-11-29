@@ -3,7 +3,6 @@
 #include "commandor.h"
 #include "tusb.h"
 
-
 static const uint8_t CRC_SIZE = sizeof(uint16_t); // размер crc
 static const uint8_t STATUS_PACKET_SIZE = sizeof(Status); // размер статусного пакета
 static const uint8_t STATUS_DATA_SIZE   = STATUS_PACKET_SIZE - CRC_SIZE; //размер статусных данных
@@ -133,12 +132,12 @@ void CommandManager::processReceivedPacket(Packet *packet) {
         sleep_us(10);
         switch (cmd.cmd_id) {
             case 1: // команда 1 - добавить в очередь на исполнения шагов
+//                send_printf_packet("push::%d %d %d %d", cmd.param1, cmd.param2, cmd.param3, cmd.param4);
                 process_cmd(i, [&]{ return queue.push(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4);});
                 break;
             case 2: // команда 2 - включить моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
-                process_cmd(i, [&]{ return StepperMotorController::powerMotors(cmd.ctrl_flags);});
+                process_cmd(i, [&]{ return motorController.powerMotors(cmd.ctrl_flags);});
                 break;
-
             default:
                 break;
         }

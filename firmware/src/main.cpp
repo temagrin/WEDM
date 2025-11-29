@@ -16,7 +16,13 @@
 static const uint64_t SEND_STATUS_INTERVAL = 1000;
 
 CommandRingBuffer queue;
-StepperMotorController motorController(queue);
+const absolute_time_t now = get_absolute_time();
+MotorState stateA = {now,0, 0, 0, false, false, 0, true};
+MotorState stateB = {now,0, 0, 0, false, false, 0, true};
+MotorState stateX = {now,0, 0, 0, false, true, 0, true};
+MotorState stateY = {now,0, 0, 0, false, true, 0, true};
+
+StepperMotorController motorController(queue, stateA, stateB, stateX, stateY);
 CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 PulseGenerator pulseGenerator(PULSE_PIN);
 CommandManager commandManager(motorController, currentSensor, pulseGenerator, queue);
@@ -37,18 +43,7 @@ void stepper_core() {
     }
 }
 
-//int main(){
-//    stdio_init_all();
-//    tusb_init();
-//    while (!tud_cdc_connected()) { tight_loop_contents(); }
-//    while (true){
-//        sleep_ms(2000);
-//        send_printf_packet("Hello %d", 12);
-//        sleep_ms(2000);
-//        send_printf_packet("Int and Float %d %f6", 12, 7.765432);
-//    }
-//
-//}
+
 
 int main() {
 //    overclock();
@@ -71,7 +66,6 @@ int main() {
     gpio_put(20, true);
 
     sleep_ms(1000);
-
     multicore_launch_core1(&stepper_core);
     absolute_time_t lastSendStatusTime = 0;
     gpio_put(22, false);

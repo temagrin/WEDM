@@ -103,7 +103,6 @@ class Status:
         if packet_end > len(self._rx_buffer2): # дошел еще не весь текст
             return
 
-        # CRC над BC CA + len + text = buffer[i : i+3+text_len]
         payload = self._rx_buffer2[0 : 3+text_len]
         calc_crc = calculate_crc16(payload)
         rec_crc = self._rx_buffer2[packet_end-2] | (self._rx_buffer2[packet_end-1] << 8)
@@ -111,7 +110,7 @@ class Status:
         if calc_crc == rec_crc:
             text = bytes(self._rx_buffer2[3 : 3+text_len]).decode('ascii', errors='ignore')
             del self._rx_buffer2[:packet_end]
-            print(f"{YELLOW}{BOLD}{text}{RESET}")
+            print(f"MK::{YELLOW}{BOLD}{text}{RESET}")
 
     def _try_consume_buffer(self):
         candidate = self._rx_buffer[:STATUS_STRUCT_SIZE]
@@ -150,19 +149,19 @@ class Status:
 
     def _process_status(self):
         if self.un_confirmation_seq_id and self.seq_id == self.un_confirmation_seq_id:
-            print("-=Обрабатываем результат подтверждения пачки")
-            total_processed = bin(self.ack_mask | self.nak_mask).count('1')
-            if total_processed != self.sent_batch_commands_count:
-                print("\tОшибка, сумма ack+nak != размеру пачки")
-                # переотправка пачки
-            nak_bits = [i for i in range(16) if (self.nak_mask & (1 << i))]
-            if nak_bits:
-                print(f"\tНе приняты команды с индексами {nak_bits}")
-                # переотправка части команд в пачке
-            ack_bits = [i for i in range(16) if (self.ack_mask & (1 << i))]
-            if ack_bits:
-                print(f"\tПриняты команды с индексами {ack_bits}")
-                # отмечаем команды в пачке как обработанные
+            # print("-=Обрабатываем результат подтверждения пачки")
+            # total_processed = bin(self.ack_mask | self.nak_mask).count('1')
+            # if total_processed != self.sent_batch_commands_count:
+            #     print("\tОшибка, сумма ack+nak != размеру пачки")
+            #     # переотправка пачки
+            # nak_bits = [i for i in range(16) if (self.nak_mask & (1 << i))]
+            # if nak_bits:
+            #     print(f"\tНе приняты команды с индексами {nak_bits}")
+            #     # переотправка части команд в пачке
+            # ack_bits = [i for i in range(16) if (self.ack_mask & (1 << i))]
+            # if ack_bits:
+            #     print(f"\tПриняты команды с индексами {ack_bits}")
+            #     # отмечаем команды в пачке как обработанные
             self.packet_confirmation_callback(self)
             self.un_confirmation_seq_id = None
 
@@ -199,9 +198,7 @@ class Connector:
         # если uid команды еще не пришел в статусе, значит она еще в работе в мк - новую не шлем
         if self.status.un_confirmation_seq_id is not None:
             return False
-        print("-=New packet to send=-")
-        print(f"\tseq_id={cmd.get_seq_id()}")
-        # print(f"{RED}{cmd.render_with_crc_to_bytes().hex()}{RESET}")
+        print(f"[{cmd.get_seq_id()}]::{GREEN}{cmd.render_with_crc_to_bytes().hex()}{RESET}")
         self._tx_buffer = cmd.render_with_crc_to_bytes()
         self.status.un_confirmation_seq_id = cmd.get_seq_id()
         self.status.packet_confirmation_callback = confirmation_callback

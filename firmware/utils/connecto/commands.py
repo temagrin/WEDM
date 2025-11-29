@@ -14,9 +14,9 @@ class CommandHelper:
 
     def zero_move_xy_test(self, *args, confirmation_callback=None, **kwargs):
         self._packet.new_packet(1)
-        self._packet.add_command(2, 1, 0, 0) # включить моторы
-        self._packet.add_command(1, 0,1,0,0,100000,200000,20000,10000)
-        self._packet.add_command(1, 0,1,0,0,100000,200000, -20000, -10000)
+        self._packet.add_command(2, 1, 0, 0, 1) # включить моторы и обнулить машинные координаты (flag4)
+        self._packet.add_command(1, 0,1,0,0,100000,200000,10000,20000)
+        self._packet.add_command(1, 0,1,0,0,100000,200000, -10000, -20000)
 
         return self._connector.send_command(self._packet, confirmation_callback=confirmation_callback)
 
