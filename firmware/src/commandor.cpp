@@ -132,11 +132,10 @@ void CommandManager::processReceivedPacket(Packet *packet) {
         sleep_us(10);
         switch (cmd.cmd_id) {
             case 1: // команда 1 - добавить в очередь на исполнения шагов
-//                send_printf_packet("push::%d %d %d %d", cmd.param1, cmd.param2, cmd.param3, cmd.param4);
                 process_cmd(i, [&]{ return queue.push(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4);});
                 break;
-            case 2: // команда 2 - включить моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
-                process_cmd(i, [&]{ return motorController.powerMotors(cmd.ctrl_flags);});
+            case 2: // команда 2 - включить немедленно моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
+                process_cmd(i, [&]{ return motorController.commonControl(cmd.ctrl_flags);});
                 break;
             default:
                 break;

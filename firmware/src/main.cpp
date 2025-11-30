@@ -3,26 +3,20 @@
 #include <hardware/vreg.h>
 #include "tusb.h"
 #include "pico/stdlib.h"
-#include "hw_config.h"
+
 #include "motor_controller.h"
 #include "current_sensor.h"
 #include "commandor.h"
 #include "pulse_generator.h"
 #include "ring_buffer.h"
-
+#include "hw_config.h"
 
 
 // интервал отправки статуса
 static const uint64_t SEND_STATUS_INTERVAL = 1000;
 
 CommandRingBuffer queue;
-const absolute_time_t now = get_absolute_time();
-MotorState stateA = {now,0, 0, 0, false, false, 0, true};
-MotorState stateB = {now,0, 0, 0, false, false, 0, true};
-MotorState stateX = {now,0, 0, 0, false, true, 0, true};
-MotorState stateY = {now,0, 0, 0, false, true, 0, true};
-
-StepperMotorController motorController(queue, stateA, stateB, stateX, stateY);
+StepperMotorController motorController(queue);
 CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 PulseGenerator pulseGenerator(PULSE_PIN);
 CommandManager commandManager(motorController, currentSensor, pulseGenerator, queue);
@@ -34,7 +28,7 @@ void overclock() {
 }
 
 void stepper_core() {
-    absolute_time_t old = 0; // не чаще чем каждую микросекунду
+    absolute_time_t old = 0;
     while (true) {
         if (const absolute_time_t now = get_absolute_time(); old != now) {
             motorController.tick(now);
@@ -49,7 +43,7 @@ int main() {
 //    overclock();
     stdio_init_all();
     tusb_init();
-    motorController.initMotors();
+    StepperMotorController::initMotors();
     currentSensor.start();
     // TODO инит настройка HX711
 
@@ -70,13 +64,13 @@ int main() {
     absolute_time_t lastSendStatusTime = 0;
     gpio_put(22, false);
     gpio_put(20, false);
-    uint8_t breakValue;
+    // uint8_t breakValue;
     while (true) {
         tud_task();
         commandManager.updateRX();
         motorController.checkBuffer();
-        breakValue = currentSensor.getCurrent()>>4;
-        if (breakValue>2) motorController.setBreak(breakValue);
+        // breakValue = currentSensor.getCurrent()>>4;
+        // if (breakValue>2) motorController.setBreak(breakValue);
         if (absolute_time_diff_us(delayed_by_us(lastSendStatusTime, SEND_STATUS_INTERVAL), get_absolute_time())>=0){
             commandManager.sendStatus();
             lastSendStatusTime = get_absolute_time();

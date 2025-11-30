@@ -16,8 +16,8 @@ def make_command(func, **kwargs):
 
 
 def main():
-    connector = Connector(port_name="/dev/ttyACM0")
-    # connector = Connector(port_name="COM20")
+    # connector = Connector(port_name="/dev/ttyACM0")
+    connector = Connector(port_name="COM20")
     connector.connect()
 
     cmd = CommandHelper(connector)
@@ -32,16 +32,19 @@ def main():
     command_interval = 2
 
     c = 0
-    for i in range(1200000000):
-        connector.process()
-        current_time = time()
-        if (current_time - last_command_time) >= command_interval:
-            last_command_time = current_time
-            if c<len(commands):
-                func, kwargs = commands[c]
-                func(**kwargs)
-                c+=1
-            print(f"[{connector.status.seq_id}]::{CYAN}{connector.status.current_position_x}|{connector.status.current_position_y}{RESET}")
+    try:
+        for i in range(1200000000):
+            connector.process()
+            current_time = time()
+            if (current_time - last_command_time) >= command_interval:
+                last_command_time = current_time
+                if c<len(commands):
+                    func, kwargs = commands[c]
+                    func(**kwargs)
+                    c+=1
+                print(f"[{connector.status.seq_id}]::{CYAN}{connector.status.current_position_x}|{connector.status.current_position_y}{RESET}")
+    except KeyboardInterrupt:
+        pass
     connector.disconnect()
 
 
