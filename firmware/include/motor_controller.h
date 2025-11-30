@@ -13,7 +13,6 @@
   #define STEPS_TEMPLATE 0x00 // 00000000
 #endif
 
-#define CMD_FIFO_XY_FLIP_FLOP_BY_READY 0b0011001100000000
 
 static constexpr uint32_t SCALE = 1000000000;
 static constexpr double DOUBLE_SCALE = SCALE;
