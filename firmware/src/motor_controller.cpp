@@ -1,28 +1,30 @@
 // motor_controller.cpp
 #include "motor_controller.h"
 
+#include "bilog.h"
+
 
 StepperMotorController::StepperMotorController(CommandRingBuffer &queue_): flipSpeedStateX(), flopSpeedStateX(), flipSpeedStateY(), flopSpeedStateY(),
-                                                  flipSpeedStateA(), flopSpeedStateA(), flipSpeedStateB(), flopSpeedStateB(),
-                                                  flipStepStateX(),  flopStepStateX(),  flipStepStateY(),  flopStepStateY(),
-                                                  flipStepStateA(),  flopStepStateA(),  flipStepStateB(),  flopStepStateB(),
-                                                  activeSpeedStateX(&flipSpeedStateX), waitingSpeedStateX(&flopSpeedStateX),
-                                                  activeSpeedStateY(&flipSpeedStateY), waitingSpeedStateY(&flopSpeedStateY),
-                                                  activeSpeedStateA(&flipSpeedStateA), waitingSpeedStateA(&flopSpeedStateA),
-                                                  activeSpeedStateB(&flipSpeedStateB), waitingSpeedStateB(&flopSpeedStateB),
-                                                  activeSpeedStates{&activeSpeedStateX, &activeSpeedStateY,
-                                                      &activeSpeedStateA, &activeSpeedStateB},
-                                                  waitingSpeedStates{&waitingSpeedStateX, &waitingSpeedStateY,
-                                                      &waitingSpeedStateA, &waitingSpeedStateB},
-                                                  activeStepStateX(&flipStepStateX), waitingStepStateX(&flopStepStateX),
-                                                  activeStepStateY(&flipStepStateY), waitingStepStateY(&flopStepStateY),
-                                                  activeStepStateA(&flipStepStateA), waitingStepStateA(&flopStepStateA),
-                                                  activeStepStateB(&flipStepStateB), waitingStepStateB(&flopStepStateB),
-                                                  activeStepStates{&activeStepStateX, &activeStepStateY,
-                                                      &activeStepStateA, &activeStepStateB},
-                                                  waitingStepStates{&waitingStepStateX, &waitingStepStateY,
-                                                      &waitingStepStateA, &waitingStepStateB},
-                                                  currentPositionX(0),currentPositionY(0),queue(queue_) {
+                                                                           flipSpeedStateA(), flopSpeedStateA(), flipSpeedStateB(), flopSpeedStateB(),
+                                                                           flipStepStateX(),  flopStepStateX(),  flipStepStateY(),  flopStepStateY(),
+                                                                           flipStepStateA(),  flopStepStateA(),  flipStepStateB(),  flopStepStateB(),
+                                                                           activeSpeedStateX(&flipSpeedStateX), waitingSpeedStateX(&flopSpeedStateX),
+                                                                           activeSpeedStateY(&flipSpeedStateY), waitingSpeedStateY(&flopSpeedStateY),
+                                                                           activeSpeedStateA(&flipSpeedStateA), waitingSpeedStateA(&flopSpeedStateA),
+                                                                           activeSpeedStateB(&flipSpeedStateB), waitingSpeedStateB(&flopSpeedStateB),
+                                                                           activeSpeedStates{&activeSpeedStateX, &activeSpeedStateY,
+                                                                               &activeSpeedStateA, &activeSpeedStateB},
+                                                                           waitingSpeedStates{&waitingSpeedStateX, &waitingSpeedStateY,
+                                                                               &waitingSpeedStateA, &waitingSpeedStateB},
+                                                                           activeStepStateX(&flipStepStateX), waitingStepStateX(&flopStepStateX),
+                                                                           activeStepStateY(&flipStepStateY), waitingStepStateY(&flopStepStateY),
+                                                                           activeStepStateA(&flipStepStateA), waitingStepStateA(&flopStepStateA),
+                                                                           activeStepStateB(&flipStepStateB), waitingStepStateB(&flopStepStateB),
+                                                                           activeStepStates{&activeStepStateX, &activeStepStateY,
+                                                                               &activeStepStateA, &activeStepStateB},
+                                                                           waitingStepStates{&waitingStepStateX, &waitingStepStateY,
+                                                                               &waitingStepStateA, &waitingStepStateB},
+                                                                           currentPositionX(0),currentPositionY(0),queue(queue_) {
     flipStepStateX.positionMode = true;
     flipStepStateY.positionMode = true;
     flopStepStateX.positionMode = true;
@@ -63,27 +65,26 @@ bool StepperMotorController::commonControl(const uint8_t ctrlFlags) {
     return true;
 }
 
+bool StepperMotorController::addToBuffer(uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY) {
 
+    // TODO вынести на сторону хоста. ненужны нам тут даблы и float математика
+    const double stepIntervalX = 1e4/abs(speedX);
+    const auto intSpeedPartX = static_cast<uint32_t>(stepIntervalX);
+    const double fracPartX = stepIntervalX - static_cast<double>(intSpeedPartX);
+    const auto errorIncrementX = static_cast<uint32_t>(fracPartX * DOUBLE_SCALE);
 
-void StepperMotorController::setWaitingSpeedCalculateXY(const uint32_t speedX, const uint32_t speedY, const bool immediately) {
-    setWaitingSpeedCalculate(AXIS_X, speedX);
-    setWaitingSpeedCalculate(AXIS_Y, speedY);
-    if (immediately) {
-        uint16_t commandFIFO = 0;
-        commandFIFO |= makeFIFOCommand(AXIS_X, SPEED, IMMEDIATE);
-        commandFIFO |= makeFIFOCommand(AXIS_Y, SPEED, IMMEDIATE);
-        applyNewStates(commandFIFO);
-    }
+    const double stepIntervalY = 1e4/abs(speedY);
+    const auto intSpeedPartY = static_cast<uint32_t>(stepIntervalY);
+    const double fracPartY = stepIntervalY - static_cast<double>(intSpeedPartY);
+    const auto errorIncrementY = static_cast<uint32_t>(fracPartY * DOUBLE_SCALE);
+
+    uint8_t ctrlFlags = 0;
+    ctrlFlags |= (speedX > 0) & 1;
+    ctrlFlags |= ((speedY > 0) & 1) <<1;
+
+    return queue.push(ctrlFlags, stepsX, stepsY, intSpeedPartX, intSpeedPartY, errorIncrementX, errorIncrementY);
 }
 
-void StepperMotorController::setWaitingSpeedCalculate(const AXIS axis, const uint32_t speed) {
-    if (speed==0) {setWaitingSpeed(axis, 0, 0); return;}
-    const double stepInterval = 1e6/speed;
-    const auto intSpeedPart = static_cast<uint32_t>(stepInterval);
-    const double fracPart = stepInterval - static_cast<double>(intSpeedPart);
-    const auto errorIncrement = static_cast<uint32_t>(fracPart * DOUBLE_SCALE);
-    setWaitingSpeed(axis, intSpeedPart, errorIncrement);
-}
 
 void StepperMotorController::setWaitingSpeed(const AXIS axis, const uint32_t stepInterval, const uint32_t errorIncrement) {
     MotorSpeedState & speedState = **waitingSpeedStates[axis];
@@ -100,62 +101,32 @@ void StepperMotorController::setWaitingSteps(const AXIS axis, const  uint32_t st
 }
 
 
+// пересмотреть
 uint16_t StepperMotorController::makeFIFOCommand(const AXIS axis, const CommandType commandType, const CommandTime commandTime) {
     return 1 << (axis + commandTime + commandType);
 }
 
-/**
- * обертку выполнять строго на другом ядре относительно быстрого домена.
- * если doFlipFlop на core1 то эту функцию вызывать на core0
- * @param updateMask перевернуть waiting и active states.
- * формат маски описан в StepperMotorController::doFlipFlop
- * также написал хелпер для сбора команды - StepperMotorController::makeFIFOCommand
- */
-void StepperMotorController::applyNewStates(const uint16_t updateMask) {
-    sentReadyFlipFlop = false; // что то отправили, теперь ждем подтверждения выполнения
-    multicore_fifo_push_blocking(updateMask);
-}
-
-
-void StepperMotorController::checkBuffer() {
-    if (multicore_fifo_rvalid()) {
-        if (multicore_fifo_pop_blocking()!=0) {
-            readyFlipFlop = true; // фиксируемся что последняя команда из фифо выполнилась, можно читать кольцевой буфер
-        }
-    }
-    if (!readyFlipFlop) return;
-    MotorCommand cmd{0};
-    if (queue.pop(cmd)) {
-        setWaitingSteps(AXIS_X, cmd.stepsX, cmd.speedX>0, true);
-        setWaitingSteps(AXIS_Y, cmd.stepsY, cmd.speedY>0, true);
-        setWaitingSpeedCalculateXY(abs(cmd.speedX), abs(cmd.speedY), false);
-
-        uint16_t commandFIFO = 0;
-        commandFIFO |= makeFIFOCommand(AXIS_X, SPEED, BY_READY);
-        commandFIFO |= makeFIFOCommand(AXIS_X, STEP, BY_READY);
-        commandFIFO |= makeFIFOCommand(AXIS_Y, SPEED, BY_READY);
-        commandFIFO |= makeFIFOCommand(AXIS_Y, STEP, BY_READY);
-
-        applyNewStates(commandFIFO);
-    }
-}
+// /**
+//  * обертку выполнять строго на другом ядре относительно быстрого домена.
+//  * если doFlipFlop на core1 то эту функцию вызывать на core0
+//  * @param updateMask перевернуть waiting и active states.
+//  * формат маски описан в StepperMotorController::doFlipFlop
+//  * также написал хелпер для сбора команды - StepperMotorController::makeFIFOCommand
+//  */
+// void StepperMotorController::applyNewStates(const uint16_t updateMask) {
+//     multicore_fifo_push_blocking(updateMask);
+// }
 
 
 /////////////////////////////////   БЫСТРЫЙ ДОМЕН   ///////////////////////////////////////
-static bool led1Value = false;
-static bool led2Value = false;
 
 void StepperMotorController::flipFlopSpeedState(const AXIS axis) {
-    gpio_put(20, led2Value ^= 1);
-
     MotorSpeedState* temp = *activeSpeedStates[axis];
     *activeSpeedStates[axis] = *waitingSpeedStates[axis];
     *waitingSpeedStates[axis] = temp;
 }
 
 void StepperMotorController::flipFlopStepState(const AXIS axis) {
-    gpio_put(22, led1Value ^= 1);
-
     MotorStepState* temp = *activeStepStates[axis];
     *activeStepStates[axis] = *waitingStepStates[axis];
     *waitingStepStates[axis] = temp;
@@ -165,7 +136,11 @@ void StepperMotorController::flipFlopStepState(const AXIS axis) {
 bool StepperMotorController::needStep(const AXIS axis, const absolute_time_t now) {
     MotorStepState& stepState = **activeStepStates[axis];
     MotorSpeedState& speedState = **activeSpeedStates[axis];
-    if (speedState.stepInterval == 0) return false; // шагание выключено
+    readyMask |= (1<<axis);
+    if (stepState.positionMode && stepState.stepsRemaining != 0) readyMask &= ~(1<<axis);
+
+    if (speedState.stepInterval == 0) return false;
+
     if (absolute_time_diff_us(delayed_by_us(stepState.stepLastTime, speedState.stepInterval), now)<0) return false;
     speedState.errorAccumulator+=speedState.errorIncrement;
     if (speedState.errorAccumulator>SCALE){
@@ -174,10 +149,8 @@ bool StepperMotorController::needStep(const AXIS axis, const absolute_time_t now
     } else {
         stepState.stepLastTime = now;
     }
-    readyMask |= (1<<axis);
     if (!stepState.positionMode) return true;
     if (stepState.stepsRemaining == 0) return false;
-    readyMask &= ~(1<<axis);
     stepState.stepsRemaining--;
     currentPositionX += axis == AXIS_X && stepState.direction ? 1 : axis == AXIS_X && !stepState.direction ? -1 : 0;
     currentPositionY += axis == AXIS_Y && stepState.direction ? 1 : axis == AXIS_Y && !stepState.direction ? -1 : 0;
@@ -224,15 +197,11 @@ void StepperMotorController::doSteps(const uint8_t doStepMask){
  * commandMask[15] - бит переворота по готовности стейта шагов оси B
  * @return если был хотя бы один из переворотов - вернем true
  */
-
-bool StepperMotorController::doFlipFlop() {
-    if (commandMask == 0) return false; // еще не поступали команды
-    readyMask &= 0x0F; // очистим старшие 4ре бита так как могли остаться с прошлого раза
-    if ((readyMask & 0x03) != 0x03) readyMask &= ~0x03; // Обнуляем готовность X и Y если один из них не готов
-    readyMask |= (readyMask << 4); // актуализируем старшие 4ре бита из младших
+uint8_t StepperMotorController::doFlipFlop(const uint16_t commandMask) {
+    if (commandMask == 0) return 0; // еще не поступали команды
     uint8_t doItMask = commandMask & 0xFF; // берем немедленную часть
     doItMask |= ((commandMask >> 8) & 0xFF) & readyMask; // накладываем часть по готовности
-    if (doItMask == 0) return false; // ничего не меняем - не готовы
+    if (doItMask == 0) return 0; // ничего не меняем - не готовы
 
     // Применяем маски
     const uint8_t speedFlipMask = doItMask & 0x0F; // младшие 4ре это флип скорости по осям
@@ -245,12 +214,23 @@ bool StepperMotorController::doFlipFlop() {
             flipFlopStepState(static_cast<AXIS>(axis));
         }
     }
-    // сбрасываем в команде выполненные биты
-    commandMask &= ~((doItMask & 0xFF) | ((doItMask & 0xFF) << 8));
-    readyMask &= ~(doItMask & 0xFF);
-    return true; // говорим коду дальше что нужно дополнительно проверить направления вращения
+    return doItMask;
 }
 
+
+bool StepperMotorController::getWaitingBuffer() {
+    if ((readyMask & 0x03) != 0x03) return false;
+    MotorCommand cmd{0};
+    if (queue.pop(cmd)) {
+        setWaitingSteps(AXIS_X, cmd.stepsX, cmd.ctrlFlags & 1, true);
+        setWaitingSteps(AXIS_Y, cmd.stepsY, (cmd.ctrlFlags >> 1) & 1, true);
+        setWaitingSpeed(AXIS_X, cmd.stepIntervalX, cmd.errorIncrementX);
+        setWaitingSpeed(AXIS_Y, cmd.stepIntervalY, cmd.errorIncrementY);
+        // printf_("pop command %d %d %d %d\n", cmd.ctrlFlags & 1, (cmd.ctrlFlags >> 1) & 1, cmd.stepsX, cmd.stepsY);
+        return true;
+    }
+    return false;
+}
 
 void StepperMotorController::tick(const absolute_time_t now) {
     uint8_t needStepBits = 0;
@@ -258,10 +238,22 @@ void StepperMotorController::tick(const absolute_time_t now) {
         needStepBits |= (needStep(static_cast<AXIS>(axis), now) & 1)<<axis; // проверяем каждую ось нужно ли сделать по ней шаг?
     }
     if (needStepBits!=0) doSteps(needStepBits); // делаем шаги по нужным осям если пора их делать
-    if (multicore_fifo_rvalid()) commandMask |= multicore_fifo_pop_blocking();
-    if (doFlipFlop()) adjustDirections(); // если был переворот, то проверим направления чтобы соответствовали
-    if (commandMask==0 && !sentReadyFlipFlop) {
-        sentReadyFlipFlop = true;
-        multicore_fifo_push_blocking(1);
+
+    readyMask &= 0x0F; // очистим старшие 4ре бита так как могли остаться с прошлого раза
+    if ((readyMask & 0x03) != 0x03) readyMask &= ~0x03; // Обнуляем готовность X и Y если один из них не готов
+    uint16_t command = 0;
+    if (getWaitingBuffer()) {
+        command |= makeFIFOCommand(AXIS_X, STEP, BY_READY);
+        command |= makeFIFOCommand(AXIS_Y, STEP, BY_READY);
+        command |= makeFIFOCommand(AXIS_X, SPEED, BY_READY);
+        command |= makeFIFOCommand(AXIS_Y, SPEED, BY_READY);
     }
+    if (command == 0 ) return;
+    readyMask |= (readyMask << 4); // актуализируем старшие 4ре бита из младших
+    uint8_t doItMask = doFlipFlop(command);
+    readyMask = 0;
+    if (doItMask == 0 ) return;
+    adjustDirections();
 }
+
+// if (multicore_fifo_rvalid()) commandMask |= multicore_fifo_pop_blocking();

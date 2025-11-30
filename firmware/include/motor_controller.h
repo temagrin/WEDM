@@ -1,6 +1,7 @@
 // motor_controller.h
 #ifndef MOTORCONTROLLER_H
 #define MOTORCONTROLLER_H
+#include <atomic>
 #include <fastmath.h>
 #include "hw_config.h"
 #include "stepper.pio.h"
@@ -14,7 +15,7 @@
 #endif
 
 
-static constexpr uint32_t SCALE = 1000000000;
+static constexpr uint32_t SCALE = 100000000;
 static constexpr double DOUBLE_SCALE = SCALE;
 
 enum AXIS {AXIS_X, AXIS_Y, AXIS_A, AXIS_B, AXIS_COUNT};
@@ -51,14 +52,12 @@ public:
     explicit StepperMotorController(CommandRingBuffer &queue_);
     static void initMotors();
     void tick(absolute_time_t now);
-    void setWaitingSpeedCalculateXY(uint32_t speedX, uint32_t speedY, bool immediately);
-    void setWaitingSpeedCalculate(AXIS axis, uint32_t speed);
     void setWaitingSpeed(AXIS axis, uint32_t stepInterval, uint32_t errorIncrement);
     void setWaitingSteps(AXIS axis, uint32_t steps, bool direction, bool positionMode);
     void applyNewStates(uint16_t updateMask);
-    void checkBuffer();
     bool commonControl(uint8_t ctrlFlags);
-
+    bool addToBuffer(uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY);
+    size_t getQueueAvailable() { return queue.available();}
     [[nodiscard]] int32_t getCurrentPositionX() const {return currentPositionX;}
     [[nodiscard]] int32_t getCurrentPositionY() const {return currentPositionY;}
 
@@ -101,14 +100,11 @@ private:
     CommandRingBuffer& queue;
 
     bool needStep(AXIS axis, absolute_time_t now);
-    bool doFlipFlop();
+    uint8_t doFlipFlop(uint16_t commandMask);
     static void doSteps(uint8_t stepMask);
     volatile bool lastDirection[AXIS_COUNT] = {false, false, false, false};
 
-    uint8_t readyMask = 0xFF;
-    uint32_t commandMask = 0;
-    bool sentReadyFlipFlop = true;
-    bool readyFlipFlop = true;
+    uint8_t readyMask = 0;
 
     static void initPin(uint16_t _pin, bool defaultValue);
     void adjustDirections();
@@ -119,6 +115,7 @@ private:
     static void setPowerA(const bool value){gpio_put(EN_A_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerB(const bool value){gpio_put(EN_B_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static uint16_t makeFIFOCommand(AXIS axis, CommandType commandType, CommandTime commandTime);
+    bool getWaitingBuffer();
 };
 
 

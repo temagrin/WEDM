@@ -1,7 +1,4 @@
-#include <cstring>
-#include <cstdio>
 #include "commandor.h"
-#include "tusb.h"
 
 static const uint8_t CRC_SIZE = sizeof(uint16_t); // размер crc
 static const uint8_t STATUS_PACKET_SIZE = sizeof(Status); // размер статусного пакета
@@ -26,21 +23,16 @@ static uint16_t calculate_crc16(const uint8_t *data, size_t length) {
     return crc;
 }
 
-CommandManager::CommandManager(
-        StepperMotorController &_motorController,
-        CurrentSensor &_currentSensor,
-        PulseGenerator &_pulseGenerator,
-        CommandRingBuffer &queue) :
-        motorController(_motorController),
-        currentSensor(_currentSensor),
-        pulseGenerator(_pulseGenerator),
-        queue(queue) {
+CommandManager::CommandManager(StepperMotorController &motorController,
+                               CurrentSensor &currentSensor,
+                               PulseGenerator &pulseGenerator): motorController(motorController),
+                                                                currentSensor(currentSensor),
+                                                                pulseGenerator(pulseGenerator) {
     status.start_marker = SYNC_MARKER;
 }
 
-
 void CommandManager::sendStatus() {
-    status.stepsBufferFree = queue.available();
+    status.stepsBufferFree = motorController.getQueueAvailable();
     status.amperage = currentSensor.getCurrent()>>4;
     status.tension = 69;
     status.currentPositionX = motorController.getCurrentPositionX();
@@ -117,7 +109,7 @@ void CommandManager::processReceivedPacket(Packet *packet) {
     status.seq_id = packet->header.seq_id;
     uint8_t num_cmds = packet->header.size_reserved & 0x0F;
 //    uint8_t packet_flags = packet->header.size_reserved >> 4;
-//
+
     status.ack_mask = 0;
     status.nak_mask = (1u << num_cmds) - 1;
 
@@ -129,10 +121,9 @@ void CommandManager::processReceivedPacket(Packet *packet) {
     };
     for (uint8_t i = 0; i<num_cmds; i++) {
         const auto& cmd = packet->commands[i];
-        sleep_us(10);
         switch (cmd.cmd_id) {
             case 1: // команда 1 - добавить в очередь на исполнения шагов
-                process_cmd(i, [&]{ return queue.push(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4);});
+                process_cmd(i, [&]{ return motorController.addToBuffer(cmd.param1, cmd.param2, cmd.param3, cmd.param4); });
                 break;
             case 2: // команда 2 - включить немедленно моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
                 process_cmd(i, [&]{ return motorController.commonControl(cmd.ctrl_flags);});

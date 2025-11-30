@@ -1,25 +1,25 @@
 #include "ring_buffer.h"
 
 
-bool CommandRingBuffer::push(uint8_t ctrl_flags, uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY)
-{
+bool CommandRingBuffer::push(const uint8_t ctrlFlags, const uint32_t stepsX, const uint32_t stepsY,
+                             const uint32_t stepIntervalX, const uint32_t stepIntervalY,
+                             const uint32_t errorIncrementX, const uint32_t errorIncrementY) {
     if (isFull()) {
         return false;
     }
-    MotorCommand mc{ctrl_flags, stepsX, stepsY, speedX, speedY};
+    const MotorCommand mc{ctrlFlags, stepsX, stepsY, stepIntervalX, stepIntervalY, errorIncrementX, errorIncrementY};
     buffer_[writeIndex_] = mc;
     writeIndex_ = (writeIndex_ + 1) & MASK;
     ++count_;
     return true;
 }
 
-bool CommandRingBuffer::pop(MotorCommand& out) {
+bool CommandRingBuffer::pop(MotorCommand &out) {
     if (isEmpty()) {
         return false;
     }
     out = buffer_[readIndex_];
-    readIndex_  = (readIndex_  + 1) & MASK;
+    readIndex_ = (readIndex_ + 1) & MASK;
     --count_;
     return true;
 }
-

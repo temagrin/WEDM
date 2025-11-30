@@ -1,7 +1,8 @@
 #ifndef FIRMWARE_COMMANDOR_H
 #define FIRMWARE_COMMANDOR_H
 
-#include <pico/types.h>
+#include "tusb.h"
+#include <cstdio>
 #include "pulse_generator.h"
 #include "motor_controller.h"
 #include "current_sensor.h"
@@ -48,7 +49,7 @@ struct Status {
 
 class CommandManager{
 public:
-    CommandManager(StepperMotorController& motorController, CurrentSensor& currentSensor, PulseGenerator& pulseGenerator, CommandRingBuffer& queue);
+    CommandManager(StepperMotorController& motorController, CurrentSensor& currentSensor, PulseGenerator& pulseGenerator);
     void sendStatus();
     void updateRX();
 
@@ -56,7 +57,6 @@ private:
     StepperMotorController& motorController;
     CurrentSensor& currentSensor;
     PulseGenerator& pulseGenerator;
-    CommandRingBuffer& queue;
     Status status{};
     size_t parseCommand();
     void processReceivedPacket(Packet *packet);

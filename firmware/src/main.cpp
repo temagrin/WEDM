@@ -14,12 +14,13 @@
 
 // интервал отправки статуса
 static const uint64_t SEND_STATUS_INTERVAL = 1000;
+static const uint64_t UPDATE_RX_INTERVAL = 100;
 
 CommandRingBuffer queue;
 StepperMotorController motorController(queue);
 CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 PulseGenerator pulseGenerator(PULSE_PIN);
-CommandManager commandManager(motorController, currentSensor, pulseGenerator, queue);
+CommandManager commandManager(motorController, currentSensor, pulseGenerator);
 
 void overclock() {
     vreg_set_voltage(VREG_VOLTAGE_1_20);         // For >133 MHz
@@ -62,15 +63,24 @@ int main() {
     sleep_ms(1000);
     multicore_launch_core1(&stepper_core);
     absolute_time_t lastSendStatusTime = 0;
+    absolute_time_t lastRxTime = 0;
+
     gpio_put(22, false);
     gpio_put(20, false);
     // uint8_t breakValue;
     while (true) {
         tud_task();
-        commandManager.updateRX();
-        motorController.checkBuffer();
+        // motorController.checkBuffer();
+
         // breakValue = currentSensor.getCurrent()>>4;
         // if (breakValue>2) motorController.setBreak(breakValue);
+
+
+        if (absolute_time_diff_us(delayed_by_us(lastRxTime, UPDATE_RX_INTERVAL), get_absolute_time())>=0){
+            commandManager.updateRX();
+            lastRxTime = get_absolute_time();
+        }
+
         if (absolute_time_diff_us(delayed_by_us(lastSendStatusTime, SEND_STATUS_INTERVAL), get_absolute_time())>=0){
             commandManager.sendStatus();
             lastSendStatusTime = get_absolute_time();
