@@ -21,8 +21,10 @@ struct Command {
     uint8_t  ctrl_flags;      // 1 байт контрольные флаги
     uint32_t param1;          // 4 байта
     uint32_t param2;          // 4 байта
-    int32_t param3;          // 4 байта
-    int32_t param4;          // 4 байта
+    uint32_t param3;          // 4 байта
+    uint32_t param4;          // 4 байта
+    uint32_t param5;          // 4 байта
+    uint32_t param6;          // 4 байта
 } __attribute__((packed));
 
 struct Packet {

@@ -38,6 +38,7 @@ class MotorController2:
         self.deceleration_factor = 1
 
 
+
     @staticmethod
     def ajustSpeed(state: MotorState2, speed):
         if speed == 0:

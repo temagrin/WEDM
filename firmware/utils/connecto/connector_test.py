@@ -16,8 +16,8 @@ def make_command(func, **kwargs):
 
 
 def main():
-    # connector = Connector(port_name="/dev/ttyACM0")
-    connector = Connector(port_name="COM20")
+    connector = Connector(port_name="/dev/ttyACM0")
+    # connector = Connector(port_name="COM20")
     connector.connect()
 
     cmd = CommandHelper(connector)

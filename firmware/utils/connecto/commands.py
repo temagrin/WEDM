@@ -16,11 +16,10 @@ class CommandHelper:
         self._packet.new_packet(1)
         self._packet.add_command(2, 1, 0, 0, 1) # включить моторы и обнулить машинные координаты (flag4)
         # self._packet.add_command(1, 0,1,0,0,1000,2000,100,200)
-        self._packet.add_command(1, 0,1,0,0,500000,1000000,600,1200)
-        self._packet.add_command(1, 0,1,0,0,100,200,100,200)
-
-        self._packet.add_command(1, 0,1,0,0,100,200,-90,-190)
-        self._packet.add_command(1, 0,1,0,0,500000,1000000,-400,-800)
+        self._packet.add_command(1, 1,1,0,0,50000,100000,20,10)
+        self._packet.add_command(1, 1,1,0,0,1000,2000,500,250)
+        self._packet.add_command(1, 0,0,0,0,1000,2000,500,250)
+        self._packet.add_command(1, 0,0,0,0,50000,100000,20,10)
         # self._packet.add_command(1, 0,1,0,0,1000,2000,-100,-200)
 
         return self._connector.send_command(self._packet, confirmation_callback=confirmation_callback)

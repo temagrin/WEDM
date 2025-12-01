@@ -15,23 +15,13 @@
 #endif
 
 
-static constexpr uint32_t SCALE = 100000000;
-static constexpr double DOUBLE_SCALE = SCALE;
-
 enum AXIS {AXIS_X, AXIS_Y, AXIS_A, AXIS_B, AXIS_COUNT};
 static constexpr uint AXIS_DIRECTION_PIN [AXIS_COUNT] = {DIR_X_PIN, DIR_Y_PIN, DIR_A_PIN, DIR_B_PIN};
 static constexpr uint AXIS_DIRECTION_INVERT [AXIS_COUNT] = {MOTOR_X_DIR_INVERT, MOTOR_Y_DIR_INVERT, MOTOR_A_DIR_INVERT, MOTOR_B_DIR_INVERT};
+#define READY_XY 0x03
+#define READY_A 0x04
+#define READY_B 0x08
 
-
-enum CommandType {
-    SPEED=0,
-    STEP=4
-};
-
-enum CommandTime {
-    IMMEDIATE=0,
-    BY_READY=8
-};
 
 struct MotorStepState {
     absolute_time_t stepLastTime;
@@ -54,9 +44,12 @@ public:
     void tick(absolute_time_t now);
     void setWaitingSpeed(AXIS axis, uint32_t stepInterval, uint32_t errorIncrement);
     void setWaitingSteps(AXIS axis, uint32_t steps, bool direction, bool positionMode);
-    void applyNewStates(uint16_t updateMask);
-    bool commonControl(uint8_t ctrlFlags);
-    bool addToBuffer(uint32_t stepsX, uint32_t stepsY, int32_t speedX, int32_t speedY);
+    static bool powerControl(uint8_t ctrlFlags);
+    bool resetPosition(){currentPositionX=0; currentPositionY=0; return true;}
+    bool addToBuffer(uint8_t ctrlFlags,
+                     uint32_t stepsX, uint32_t stepsY,
+                     uint32_t intSpeedPartX, uint32_t intSpeedPartY,
+                     uint32_t errorIncrementX, uint32_t errorIncrementY);
     size_t getQueueAvailable() { return queue.available();}
     [[nodiscard]] int32_t getCurrentPositionX() const {return currentPositionX;}
     [[nodiscard]] int32_t getCurrentPositionY() const {return currentPositionY;}
@@ -100,7 +93,6 @@ private:
     CommandRingBuffer& queue;
 
     bool needStep(AXIS axis, absolute_time_t now);
-    uint8_t doFlipFlop(uint16_t commandMask);
     static void doSteps(uint8_t stepMask);
     volatile bool lastDirection[AXIS_COUNT] = {false, false, false, false};
 
@@ -114,8 +106,9 @@ private:
     static void setPowerXY(const bool value){gpio_put(EN_X_Y_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerA(const bool value){gpio_put(EN_A_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerB(const bool value){gpio_put(EN_B_PIN, MOTOR_ENABLE_INVERT ^ value);}
-    static uint16_t makeFIFOCommand(AXIS axis, CommandType commandType, CommandTime commandTime);
-    bool getWaitingBuffer();
+    bool popXYStates();
+    bool popAStates();
+    bool popBStates();
 };
 
 
