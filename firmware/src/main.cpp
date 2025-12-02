@@ -14,12 +14,10 @@
 static const uint64_t SEND_STATUS_INTERVAL = 1000;
 static const uint64_t UPDATE_RX_INTERVAL = 10;
 
-CommandRingBuffer queue;
-StepperMotorController motorController(queue);
+StepperMotorController motorController;
 CurrentSensor currentSensor(CURRENT_SENCE_ADC_PIN);
 PulseGenerator pulseGenerator(PULSE_PIN);
 CommandManager commandManager(motorController, currentSensor, pulseGenerator);
-
 
 
 void stepper_core() {

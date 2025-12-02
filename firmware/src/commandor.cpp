@@ -123,7 +123,7 @@ void CommandManager::processReceivedPacket(Packet *packet) {
         const auto& cmd = packet->commands[i];
         switch (cmd.cmd_id) {
             case 1: // команда 1 - добавить в очередь на исполнения шагов
-                process_cmd(i, [&]{ return motorController.addToBuffer(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4, cmd.param5, cmd.param6); });
+                process_cmd(i, [&]{ return motorController.addToBuffer(cmd.ctrl_flags, cmd.param1, cmd.param2, cmd.param3, cmd.param4); });
                 break;
             case 2: // команда 2 - включить немедленно моторы по указаным флагам ( flag 1 - XY, flag 2 - A, flag 3 - B
                 process_cmd(i, [&]{ return StepperMotorController::powerControl(cmd.ctrl_flags);});

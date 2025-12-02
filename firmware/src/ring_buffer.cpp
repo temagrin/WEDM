@@ -2,12 +2,11 @@
 
 
 bool CommandRingBuffer::push(const uint8_t ctrlFlags, const uint32_t stepsX, const uint32_t stepsY,
-                             const uint32_t stepIntervalX, const uint32_t stepIntervalY,
-                             const uint32_t errorIncrementX, const uint32_t errorIncrementY) {
+                             const uint32_t stepInterval, const uint32_t errorIncrement) {
     if (isFull()) {
         return false;
     }
-    const MotorCommand mc{ctrlFlags, stepsX, stepsY, stepIntervalX, stepIntervalY, errorIncrementX, errorIncrementY};
+    const MotorCommand mc{ctrlFlags, stepsX, stepsY, stepInterval, errorIncrement};
     buffer_[writeIndex_] = mc;
     writeIndex_ = (writeIndex_ + 1) & MASK;
     ++count_;

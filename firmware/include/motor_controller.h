@@ -16,21 +16,27 @@
 
 
 enum AXIS {AXIS_X, AXIS_Y, AXIS_A, AXIS_B, AXIS_COUNT};
+enum G_AXIS {G_AXIS_XY, A_AXIS_A, G_AXIS_B, G_AXIS_COUNT};
+
+
 static constexpr uint AXIS_DIRECTION_PIN [AXIS_COUNT] = {DIR_X_PIN, DIR_Y_PIN, DIR_A_PIN, DIR_B_PIN};
 static constexpr uint AXIS_DIRECTION_INVERT [AXIS_COUNT] = {MOTOR_X_DIR_INVERT, MOTOR_Y_DIR_INVERT, MOTOR_A_DIR_INVERT, MOTOR_B_DIR_INVERT};
-#define READY_XY 0x03
-#define READY_A 0x04
-#define READY_B 0x08
 
 
-struct MotorStepState {
-    absolute_time_t stepLastTime;
+struct MotorBresenhamState {
+    int32_t targetX;
+    int32_t targetY;
+    int32_t taskCurrentX;
+    int32_t taskCurrentY;
+    int32_t errorPosition;
+    bool finished;
+};
+struct MotorDirectionState {
     bool direction;
-    bool positionMode;
-    uint32_t stepsRemaining;
 };
 
 struct MotorSpeedState {
+    absolute_time_t stepLastTime;
     uint32_t stepInterval;
     uint32_t errorIncrement;
     uint32_t errorAccumulator;
@@ -39,76 +45,84 @@ struct MotorSpeedState {
 
 class StepperMotorController {
 public:
-    explicit StepperMotorController(CommandRingBuffer &queue_);
+    StepperMotorController();
+
     static void initMotors();
     void tick(absolute_time_t now);
-    void setWaitingSpeed(AXIS axis, uint32_t stepInterval, uint32_t errorIncrement);
-    void setWaitingSteps(AXIS axis, uint32_t steps, bool direction, bool positionMode);
+
+    void setWaitingSpeed(G_AXIS axis, uint32_t stepInterval, uint32_t errorIncrement);
+    void setWaitingSteps(uint32_t stepsX, uint32_t stepsY);
+    void setWaitingDirection(AXIS axis, bool direction);
+
+
+    bool addToBuffer(uint8_t ctrlFlags, uint32_t stepsX, uint32_t stepsY,
+                     uint32_t intSpeedPart, uint32_t errorIncrement);
+
+    size_t getQueueAvailable() { return queue.available();}
     static bool powerControl(uint8_t ctrlFlags);
     bool resetPosition(){currentPositionX=0; currentPositionY=0; return true;}
-    bool addToBuffer(uint8_t ctrlFlags,
-                     uint32_t stepsX, uint32_t stepsY,
-                     uint32_t intSpeedPartX, uint32_t intSpeedPartY,
-                     uint32_t errorIncrementX, uint32_t errorIncrementY);
-    size_t getQueueAvailable() { return queue.available();}
     [[nodiscard]] int32_t getCurrentPositionX() const {return currentPositionX;}
     [[nodiscard]] int32_t getCurrentPositionY() const {return currentPositionY;}
 
 
 private:
-    MotorSpeedState flipSpeedStateX, flopSpeedStateX;
-    MotorSpeedState flipSpeedStateY, flopSpeedStateY;
-    MotorSpeedState flipSpeedStateA, flopSpeedStateA;
-    MotorSpeedState flipSpeedStateB, flopSpeedStateB;
+    // TODO проинитить это все внимательно!
+    MotorBresenhamState flipStepState{}, flopStepState{};
+    MotorBresenhamState* activeStepState = nullptr;
+    MotorBresenhamState* waitingStepState = nullptr;
 
-    MotorStepState flipStepStateX, flopStepStateX;
-    MotorStepState flipStepStateY, flopStepStateY;
-    MotorStepState flipStepStateA, flopStepStateA;
-    MotorStepState flipStepStateB, flopStepStateB;
+    MotorSpeedState flipSpeedStateXY{}, flopSpeedStateXY{};
+    MotorSpeedState flipSpeedStateA{}, flopSpeedStateA{};
+    MotorSpeedState flipSpeedStateB{}, flopSpeedStateB{};
 
-    MotorSpeedState* activeSpeedStateX;
-    MotorSpeedState* waitingSpeedStateX;
-    MotorSpeedState* activeSpeedStateY;
-    MotorSpeedState* waitingSpeedStateY;
-    MotorSpeedState* activeSpeedStateA;
-    MotorSpeedState* waitingSpeedStateA;
-    MotorSpeedState* activeSpeedStateB;
-    MotorSpeedState* waitingSpeedStateB;
-    MotorSpeedState** activeSpeedStates[AXIS_COUNT];
-    MotorSpeedState** waitingSpeedStates[AXIS_COUNT];
+    MotorSpeedState* activeSpeedStateXY = nullptr;
+    MotorSpeedState* waitingSpeedStateXY = nullptr;
+    MotorSpeedState* activeSpeedStateA = nullptr;
+    MotorSpeedState* waitingSpeedStateA = nullptr;
+    MotorSpeedState* activeSpeedStateB = nullptr;
+    MotorSpeedState* waitingSpeedStateB = nullptr;
+    MotorSpeedState** activeSpeedStates[G_AXIS_COUNT] = {};
+    MotorSpeedState** waitingSpeedStates[G_AXIS_COUNT] = {};
 
-    MotorStepState* activeStepStateX;
-    MotorStepState* waitingStepStateX;
-    MotorStepState* activeStepStateY;
-    MotorStepState* waitingStepStateY;
-    MotorStepState* activeStepStateA;
-    MotorStepState* waitingStepStateA;
-    MotorStepState* activeStepStateB;
-    MotorStepState* waitingStepStateB;
-    MotorStepState** activeStepStates[AXIS_COUNT];
-    MotorStepState** waitingStepStates[AXIS_COUNT];
+    MotorDirectionState flipDirectionStateX{}, flopDirectionStateX{};
+    MotorDirectionState flipDirectionStateY{}, flopDirectionStateY{};
+    MotorDirectionState flipDirectionStateA{}, flopDirectionStateA{};
+    MotorDirectionState flipDirectionStateB{}, flopDirectionStateB{};
 
-    volatile int32_t currentPositionX;
-    volatile int32_t currentPositionY;
-    CommandRingBuffer& queue;
+    MotorDirectionState* activeDirectionStateX = nullptr;
+    MotorDirectionState* waitingDirectionStateX = nullptr;
+    MotorDirectionState* activeDirectionStateY = nullptr;
+    MotorDirectionState* waitingDirectionStateY = nullptr;
+    MotorDirectionState* activeDirectionStateA = nullptr;
+    MotorDirectionState* waitingDirectionStateA = nullptr;
+    MotorDirectionState* activeDirectionStateB = nullptr;
+    MotorDirectionState* waitingDirectionStateB = nullptr;
 
-    bool needStep(AXIS axis, absolute_time_t now);
+    MotorDirectionState** activeDirectionStates[AXIS_COUNT] = {};
+    MotorDirectionState** waitingDirectionStates[AXIS_COUNT] = {};
+
+    CommandRingBuffer queue = {};
+
+    volatile int32_t currentPositionX = 0;
+    volatile int32_t currentPositionY = 0;
+
+
+    bool needStep(G_AXIS axis, absolute_time_t now);
+    uint8_t needBresenhamSteps();
+    void applyStepsToCurrentPosition(uint8_t stepsMask);
     static void doSteps(uint8_t stepMask);
-    volatile bool lastDirection[AXIS_COUNT] = {false, false, false, false};
 
-    uint8_t readyMask = 0;
+
+    void popXYStates();
+
+    void flipFlopSpeedState(G_AXIS axis); // индивидуально по группам осей
+    void flipFlopDirectionState(AXIS axis); // индивидуально по осям
+    void flipFlopStepState();
 
     static void initPin(uint16_t _pin, bool defaultValue);
-    void adjustDirections();
-    void flipFlopSpeedState(AXIS axis);
-    void flipFlopStepState(AXIS axis);
-
     static void setPowerXY(const bool value){gpio_put(EN_X_Y_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerA(const bool value){gpio_put(EN_A_PIN, MOTOR_ENABLE_INVERT ^ value);}
     static void setPowerB(const bool value){gpio_put(EN_B_PIN, MOTOR_ENABLE_INVERT ^ value);}
-    bool popXYStates();
-    bool popAStates();
-    bool popBStates();
 };
 
 

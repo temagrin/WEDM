@@ -10,18 +10,15 @@ struct MotorCommand {
     uint8_t ctrlFlags;
     uint32_t stepsX;
     uint32_t stepsY;
-    uint32_t stepIntervalX;
-    uint32_t stepIntervalY;
-    uint32_t errorIncrementX;
-    uint32_t errorIncrementY;
+    uint32_t stepInterval;
+    uint32_t errorIncrement;
 };
 
 
 class CommandRingBuffer {
 public:
     bool push(uint8_t ctrlFlags, uint32_t stepsX, uint32_t stepsY,
-              uint32_t stepIntervalX, uint32_t stepIntervalY,
-              uint32_t errorIncrementX, uint32_t errorIncrementY);
+              uint32_t stepIntervalX, uint32_t errorIncrementX);
 
     bool pop(MotorCommand &out);
 
