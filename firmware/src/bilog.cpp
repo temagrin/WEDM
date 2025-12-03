@@ -22,21 +22,6 @@ static uint16_t crc16_modbus(const uint8_t *data, size_t length) {
 static char text_buffer[MAX_PACKET_TEXT_LEN];
 static uint32_t buffer_pos = 0;
 
-void _putchar(char character)
-{
-    if (buffer_pos >= MAX_PACKET_TEXT_LEN) {
-        send_text_packet(text_buffer);
-        buffer_pos = 0;
-    }
-    if (character == '\n') {
-        text_buffer[buffer_pos] = '\0';
-        send_text_packet(text_buffer);
-        buffer_pos = 0;
-        return;
-    }
-    text_buffer[buffer_pos++] = character;
-}
-
 void send_text_packet(const char* text) {
     size_t text_len = strlen(text);
     if (text_len > MAX_PACKET_TEXT_LEN) return;
@@ -53,7 +38,20 @@ void send_text_packet(const char* text) {
     tud_cdc_write_flush();
 }
 
-
+void _putchar(char character)
+{
+    if (buffer_pos >= MAX_PACKET_TEXT_LEN) {
+        send_text_packet(text_buffer);
+        buffer_pos = 0;
+    }
+    if (character == '\n') {
+        text_buffer[buffer_pos] = '\0';
+        send_text_packet(text_buffer);
+        buffer_pos = 0;
+        return;
+    }
+    text_buffer[buffer_pos++] = character;
+}
 
 // 'ntoa' conversion buffer size, this must be big enough to hold one converted
 // numeric number including padded zeros (dynamically created on stack)
@@ -868,9 +866,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 }
 
 
-///////////////////////////////////////////////////////////////////////////////
-
-int printf_(const char* format, ...)
+int printfB(const char* format, ...)
 {
     va_list va;
     va_start(va, format);
@@ -879,49 +875,3 @@ int printf_(const char* format, ...)
     va_end(va);
     return ret;
 }
-
-
-int sprintf_(char* buffer, const char* format, ...)
-{
-    va_list va;
-    va_start(va, format);
-    const int ret = _vsnprintf(_out_buffer, buffer, (size_t)-1, format, va);
-    va_end(va);
-    return ret;
-}
-
-
-int snprintf_(char* buffer, size_t count, const char* format, ...)
-{
-    va_list va;
-    va_start(va, format);
-    const int ret = _vsnprintf(_out_buffer, buffer, count, format, va);
-    va_end(va);
-    return ret;
-}
-
-
-int vprintf_(const char* format, va_list va)
-{
-    char buffer[1];
-    return _vsnprintf(_out_char, buffer, (size_t)-1, format, va);
-}
-
-
-int vsnprintf_(char* buffer, size_t count, const char* format, va_list va)
-{
-    return _vsnprintf(_out_buffer, buffer, count, format, va);
-}
-
-
-int fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...)
-{
-    va_list va;
-    va_start(va, format);
-    const out_fct_wrap_type out_fct_wrap = { out, arg };
-    const int ret = _vsnprintf(_out_fct, (char*)(uintptr_t)&out_fct_wrap, (size_t)-1, format, va);
-    va_end(va);
-    return ret;
-}
-
-

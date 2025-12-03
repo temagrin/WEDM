@@ -8,6 +8,7 @@
 #include "pulse_generator.h"
 #include "ring_buffer.h"
 #include "hw_config.h"
+#include "bilog.h"
 
 
 // интервал отправки статуса
@@ -22,14 +23,15 @@ CommandManager commandManager(motorController, currentSensor, pulseGenerator);
 
 void stepper_core() {
     absolute_time_t old = 0;
+    absolute_time_t now = 0;
     while (true) {
-        if (const absolute_time_t now = get_absolute_time(); old != now) {
+        now = get_absolute_time();
+        if (old != now) {
             motorController.tick(now);
             old = now;
         }
     }
 }
-
 
 
 int main() {
@@ -42,14 +44,13 @@ int main() {
     multicore_launch_core1(&stepper_core);
     absolute_time_t lastSendStatusTime = 0;
     absolute_time_t lastRxTime = 0;
-
-    // uint8_t breakValue;
+    uint8_t breakValue;
+    printfB("Test logger print\n");
     while (true) {
         tud_task();
-        // motorController.checkBuffer();
 
-        // breakValue = currentSensor.getCurrent()>>4;
-        // if (breakValue>2) motorController.setBreak(breakValue);
+        breakValue = currentSensor.getCurrent()>>6;
+        motorController.setBreakFactor(breakValue);
 
         if (absolute_time_diff_us(delayed_by_us(lastRxTime, UPDATE_RX_INTERVAL), get_absolute_time())>=0){
             commandManager.updateRX();

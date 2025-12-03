@@ -5,7 +5,7 @@ from color_CLI import *
 DEFAULT_USB_CDC_BAUD_RATE = 921600
 SYNC_MARKER = 0xABCD
 
-COMMAND_STRUCT_FORMAT = '<BBIIIIII'
+COMMAND_STRUCT_FORMAT = '<BBIIII'
 PACKET_HEADER_STRUCT_FORMAT = '<HHB'
 STATUS_STRUCT_FORMAT = '<HHHhiiHHHH'
 
@@ -36,12 +36,12 @@ class Packet:
     def get_seq_id(self):
         return self._seq_id
 
-    def add_command(self, command_id=0, flag1=0, flag2=0, flag3=0, flag4=0, param1=0, param2=0, param3=0, param4=0, param5=0, param6=0):
+    def add_command(self, command_id=0, flag1=0, flag2=0, flag3=0, flag4=0, param1=0, param2=0, param3=0, param4=0):
         if len(self.commands) >= 16:
             raise "max allowed 16 commands in packet"
         ctrl_flags = ((flag4 & 0x1) << 3) | ((flag3 & 0x1) << 2) | ((flag2 & 0x1) << 1) | (flag1 & 0x1)
         self.commands.append(struct.pack(COMMAND_STRUCT_FORMAT, (command_id & 0xFF), (ctrl_flags & 0xFF),
-                                         param1, param2, param3, param4, param5, param6))
+                                         param1, param2, param3, param4))
 
     def new_packet(self, packet_flags):
         self.commands = []
