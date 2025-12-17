@@ -15,6 +15,8 @@ class TestCaseBase:
     delta_t_planer: int = 100
     max_test_time: int = 100000000
     max_speed: int = 50000
+    max_accel: int = 50000
+
 
 
 @dataclass
@@ -53,4 +55,4 @@ class TestSpeed(TestCaseBase):
     max_speed: int = 2000
 
 
-ALL_CASES = [TestSpeed,]
+ALL_CASES = [FastStar,]

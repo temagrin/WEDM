@@ -1,11 +1,14 @@
+from decimal import Decimal
+
 from cases import TestCaseBase, ALL_CASES
 from plotter import plot_points
-from fake_motor_controller import MotorController
-from fake_motor_controller2 import MotorController2
+from motor_controller import MotorController
+from utils.motionSIM.calc import StepCalculators
 
 
 def test_scenario(test_case: TestCaseBase):
-    motor_controller = MotorController2()
+
+    motor_controller = MotorController()
     current_time = 0
     test_paths = test_case.test_paths[:]
     x_points = [0, ]
@@ -25,18 +28,17 @@ def test_scenario(test_case: TestCaseBase):
         if motor_controller.ready() and test_paths:
             new_task = test_paths.pop(0)
             if test_paths:
-                next_task = test_paths[0]
-                k = motor_controller.look_ahead(new_task[0], new_task[1], next_task[0], next_task[1])
-                max_allowed_speed = min(test_case.max_speed, test_case.max_speed)
-                junction_speed = int(max_allowed_speed * k)
+                next_target_x = test_paths[0][0]
+                next_target_y = test_paths[0][1]
             else:
-                junction_speed = 0
-            motor_controller.move_to(new_task[0], new_task[1], test_case.max_speed, junction_speed)
+                next_target_x = new_task[0]
+                next_target_y = new_task[1]
+            for s in StepCalculators.gen_segments(motor_controller.current_x_position, motor_controller.current_y_position, new_task[0], new_task[1],
+                                         next_target_x, next_target_y, test_case.max_speed, test_case.max_accel):
+                motor_controller.addToBuffer(s.direction_x, s.direction_y, s.steps_x, s.steps_y, s.step_interval, s.step_frac_interval)
+
         if motor_controller.tick(current_time):
             steps_total += 1
-        if (current_time % test_case.delta_t_planer) == 0:
-            motor_controller.fsm_tick()
-            count_fsm_ticks += 1
 
         x_points.append(motor_controller.current_x_position)
         y_points.append(motor_controller.current_y_position)
